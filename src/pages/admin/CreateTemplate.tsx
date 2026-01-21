@@ -5,7 +5,7 @@ import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent } from '../../components/ui/Card';
-import { Input, Textarea, Select } from '../../components/ui/Input';
+import { Input, Select } from '../../components/ui/Input';
 import { Question, QuestionTemplate, SubjectInTemplate } from '../../types';
 import { templatesAPI } from '../../services/api';
 
