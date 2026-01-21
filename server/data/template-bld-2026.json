@@ -1,0 +1,156 @@
+{
+  "id": "template-bld-2026",
+  "name": "Đánh giá Ban Lãnh Đạo 2026",
+  "description": "Bộ câu hỏi đánh giá năng lực lãnh đạo, quản lý và định hướng chiến lược của Ban Lãnh Đạo công ty năm 2026. Đánh giá bao gồm các khía cạnh: tầm nhìn chiến lược, khả năng ra quyết định, kỹ năng giao tiếp, và hiệu quả lãnh đạo.",
+  "type": "bld",
+  "roles": [],
+  "subjects": [
+    {
+      "id": "1",
+      "name": "Lê Đức Nam",
+      "position": "Lãnh đạo",
+      "department": "Ban Giám Đốc"
+    },
+    {
+      "id": "2",
+      "name": "Hoàng Thị Nga",
+      "position": "Lãnh đạo",
+      "department": "Ban Giám Đốc"
+    },
+    {
+      "id": "3",
+      "name": "Nguyễn Đăng Khánh",
+      "position": "Lãnh đạo",
+      "department": "Ban Giám Đốc"
+    },
+    {
+      "id": "4",
+      "name": "Phạm Ngọc Tuân",
+      "position": "Lãnh đạo",
+      "department": "Ban Giám Đốc"
+    },
+    {
+      "id": "5",
+      "name": "Đặng Minh Tiến",
+      "position": "Lãnh đạo",
+      "department": "Ban Giám Đốc"
+    },
+    {
+      "id": "6",
+      "name": "Đặng Mạnh Dũng",
+      "position": "Lãnh đạo",
+      "department": "Ban Giám Đốc"
+    },
+    {
+      "id": "7",
+      "name": "Lê Tiến Đạt",
+      "position": "Lãnh đạo",
+      "department": "Ban Giám Đốc"
+    },
+    {
+      "id": "8",
+      "name": "Tống Thị Quyên",
+      "position": "Lãnh đạo",
+      "department": "Ban Giám Đốc"
+    }
+  ],
+  "questions": [
+    {
+      "id": "common-1",
+      "content": "Tầm nhìn và Định hướng Chiến lược",
+      "description": "Đánh giá khả năng xây dựng và truyền đạt tầm nhìn, định hướng chiến lược rõ ràng cho tổ chức",
+      "type": "rating-5",
+      "required": true
+    },
+    {
+      "id": "common-2",
+      "content": "Khả năng Ra quyết định",
+      "description": "Đánh giá khả năng đưa ra quyết định đúng đắn, kịp thời trong các tình huống khác nhau",
+      "type": "rating-5",
+      "required": true
+    },
+    {
+      "id": "common-3",
+      "content": "Kỹ năng Giao tiếp và Truyền thông",
+      "description": "Đánh giá khả năng giao tiếp hiệu quả với nhân viên, đối tác và các bên liên quan",
+      "type": "rating-5",
+      "required": true
+    },
+    {
+      "id": "common-4",
+      "content": "Quản lý và Phát triển Đội ngũ",
+      "description": "Đánh giá khả năng xây dựng, phát triển và duy trì đội ngũ nhân sự chất lượng cao",
+      "type": "rating-5",
+      "required": true
+    },
+    {
+      "id": "common-5",
+      "content": "Tính Liêm chính và Đạo đức nghề nghiệp",
+      "description": "Đánh giá sự trung thực, minh bạch và tuân thủ các chuẩn mực đạo đức trong công việc",
+      "type": "rating-5",
+      "required": true
+    },
+    {
+      "id": "common-6",
+      "content": "Khả năng Thích ứng và Đổi mới",
+      "description": "Đánh giá khả năng thích nghi với thay đổi và thúc đẩy đổi mới sáng tạo",
+      "type": "rating-5",
+      "required": true
+    },
+    {
+      "id": "common-7",
+      "content": "Quản lý Tài chính và Nguồn lực",
+      "description": "Đánh giá khả năng quản lý hiệu quả tài chính và các nguồn lực của tổ chức",
+      "type": "rating-5",
+      "required": true
+    },
+    {
+      "id": "common-8",
+      "content": "Khả năng Giải quyết Xung đột",
+      "description": "Đánh giá kỹ năng giải quyết mâu thuẫn, xung đột một cách công bằng và hiệu quả",
+      "type": "rating-5",
+      "required": true
+    },
+    {
+      "id": "common-9",
+      "content": "Xây dựng Văn hóa Doanh nghiệp",
+      "description": "Đánh giá khả năng xây dựng và duy trì văn hóa làm việc tích cực",
+      "type": "rating-5",
+      "required": true
+    },
+    {
+      "id": "common-10",
+      "content": "Hiệu quả Lãnh đạo Tổng thể",
+      "description": "Đánh giá tổng thể về hiệu quả lãnh đạo và đóng góp cho sự phát triển của công ty",
+      "type": "rating-5",
+      "required": true
+    },
+    {
+      "id": "common-11",
+      "content": "Điểm mạnh nổi bật",
+      "description": "Hãy nêu 3-5 điểm mạnh nổi bật nhất mà bạn nhận thấy ở lãnh đạo này",
+      "type": "text",
+      "required": true,
+      "minChars": 100
+    },
+    {
+      "id": "common-12",
+      "content": "Lĩnh vực cần cải thiện",
+      "description": "Hãy đưa ra những gợi ý cụ thể về lĩnh vực mà lãnh đạo này cần cải thiện",
+      "type": "text",
+      "required": true,
+      "minChars": 100
+    },
+    {
+      "id": "common-13",
+      "content": "Đánh giá tổng quát",
+      "description": "Nhận xét tổng quan về phong cách lãnh đạo và những đóng góp trong năm qua",
+      "type": "text",
+      "required": true,
+      "minChars": 150
+    }
+  ],
+  "subject_questions": [],
+  "created_at": "2026-01-21T08:00:00.000Z",
+  "updated_at": "2026-01-21T08:00:00.000Z"
+}

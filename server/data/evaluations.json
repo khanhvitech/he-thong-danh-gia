@@ -1,0 +1,76 @@
+[
+  {
+    "id": "eval-1768991936176",
+    "templateId": "template-bld-2026",
+    "department": "Phòng Kỹ thuật",
+    "selectedSubjects": [
+      "4",
+      "2"
+    ],
+    "answers": {
+      "2-tpl-2-tq-1768989580829": "â",
+      "2-tpl-2-tq-1768989619583": "a",
+      "4-tpl-4-tq-1768989580829": "a",
+      "4-tpl-4-tq-1768989619583": "â",
+      "common-cq-1768988193003": "a",
+      "common-cq-1768988217756": {
+        "1": "2",
+        "2": "3",
+        "3": "4",
+        "4": "6",
+        "5": "5",
+        "6": "8",
+        "7": "7"
+      }
+    },
+    "subjectDetails": [
+      {
+        "id": "2",
+        "name": "Hoàng Thị Nga"
+      },
+      {
+        "id": "4",
+        "name": "Phạm Ngọc Tuân"
+      }
+    ],
+    "submittedAt": "2026-01-21T10:38:56.176Z",
+    "status": "completed"
+  },
+  {
+    "id": "eval-1768991989416",
+    "templateId": "template-bld-2026",
+    "department": "Phòng Marketing",
+    "selectedSubjects": [
+      "4",
+      "6"
+    ],
+    "answers": {
+      "4-tpl-4-tq-1768989580829": "aaaaa",
+      "4-tpl-4-tq-1768989619583": "aaaaaa",
+      "6-tpl-6-tq-1768989580829": "aaaaaa",
+      "6-tpl-6-tq-1768989619583": "aaaaa",
+      "common-cq-1768988193003": "aaaaa",
+      "common-cq-1768988217756": {
+        "1": "2",
+        "2": "5",
+        "3": "3",
+        "4": "6",
+        "5": "4",
+        "6": "7",
+        "7": "8"
+      }
+    },
+    "subjectDetails": [
+      {
+        "id": "4",
+        "name": "Phạm Ngọc Tuân"
+      },
+      {
+        "id": "6",
+        "name": "Đặng Mạnh Dũng"
+      }
+    ],
+    "submittedAt": "2026-01-21T10:39:49.416Z",
+    "status": "completed"
+  }
+]

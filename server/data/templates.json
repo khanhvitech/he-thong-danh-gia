@@ -1,0 +1,119 @@
+[
+  {
+    "id": "template-bld-2026",
+    "name": "CÙNG NHÌN LẠI - GIÚP SẾP TIẾN BỘ  ",
+    "description": "<p>Tại ViTechGroup, chúng ta không chỉ cùng nhau làm việc để kiếm tiền, mà còn cùng nhau <strong>trưởng thành, hoàn thiện và tiến bộ mỗi ngày</strong>.</p><p>Thị trường biến động, tất cả chúng ta đều cần phải ĐỔI MỚI mình. Lãnh đạo lại càng cần hoàn thiện, cần soi lại, điều chỉnh để tốt hơn. Vì <strong>một đoàn tàu chỉ mạnh khi từng toa đều vận hành tốt</strong>, và <strong>người đầu tàu càng cần được hiệu chỉnh đúng lúc</strong>.</p><p><strong style=\"background-color: rgba(255, 246, 122, 0.8);\"><u>Form khảo sát này được tạo ra với một mục tiêu duy nhất:</u></strong></p><p> 👉 <strong>Giúp Ban Lãnh đạo nhìn rõ những điểm cần cải thiện, cần thay đổi, cần cập nhật</strong> để hỗ trợ anh em tốt hơn, dẫn dắt tổ chức tốt hơn.</p><p>Mong anh em <strong>chia sẻ thẳng thắn chân thành có trách nhiệm</strong>, không vì nể nang, cũng không vì cảm xúc cá nhân. Mỗi góp ý là một viên gạch giúp tổ chức vững hơn, giúp lãnh đạo tốt hơn, và cuối cùng là <strong>giúp chính chúng ta tốt hơn 1% mỗi ngày</strong>.</p><p>Tất cả phản hồi đều được<strong style=\"background-color: rgba(255, 246, 122, 0.8);\"> ẩn danh hoàn toàn</strong></p><p><strong>Chúng ta cùng nhau hoàn thiện để ViTech mạnh hơn, bền hơn, và tử tế hơn.</strong></p>",
+    "type": "bld",
+    "roles": [],
+    "subjects": [
+      {
+        "id": "2",
+        "name": "Hoàng Thị Nga",
+        "position": "Lãnh đạo",
+        "department": "Ban Giám Đốc"
+      },
+      {
+        "id": "3",
+        "name": "Nguyễn Đăng Khánh",
+        "position": "Lãnh đạo",
+        "department": "Ban Giám Đốc"
+      },
+      {
+        "id": "4",
+        "name": "Phạm Ngọc Tuân",
+        "position": "Lãnh đạo",
+        "department": "Ban Giám Đốc"
+      },
+      {
+        "id": "5",
+        "name": "Đặng Minh Tiến",
+        "position": "Lãnh đạo",
+        "department": "Ban Giám Đốc"
+      },
+      {
+        "id": "6",
+        "name": "Đặng Mạnh Dũng",
+        "position": "Lãnh đạo",
+        "department": "Ban Giám Đốc"
+      },
+      {
+        "id": "7",
+        "name": "Lê Tiến Đạt",
+        "position": "Lãnh đạo",
+        "department": "Ban Giám Đốc"
+      },
+      {
+        "id": "8",
+        "name": "Tống Thị Quyên",
+        "position": "Lãnh đạo",
+        "department": "Ban Giám Đốc"
+      }
+    ],
+    "questions": [
+      {
+        "id": "cq-1768988193003",
+        "content": "Từ trải nghiệm của Anh/Chị, hãy gửi lời nhắn hoặc chia sẻ điều gì đó, mong muốn, tâm sự... đến toàn thể đội ngũ BLĐ VitechGroup",
+        "type": "text",
+        "required": true,
+        "minChars": 1000,
+        "description": ""
+      },
+      {
+        "id": "cq-1768988217756",
+        "content": "Trong danh sách dưới đây, đâu là những lãnh đạo mà Anh/Chị cảm thấy dễ tạo được sự tin tưởng và muốn đồng hành lâu dài trong công việc? (Vui lòng sắp xếp theo mức độ cảm nhận của Anh/Chị)",
+        "type": "ranking",
+        "required": true,
+        "description": "Câu hỏi này nhằm giúp công ty hiểu rõ hơn về những phong cách lãnh đạo tạo được sự tin tưởng từ đội ngũ, không nhằm so sánh hay đánh giá cá nhân."
+      }
+    ],
+    "subject_questions": [
+      {
+        "subjectId": "2",
+        "questions": []
+      },
+      {
+        "subjectId": "3",
+        "questions": []
+      },
+      {
+        "subjectId": "4",
+        "questions": []
+      },
+      {
+        "subjectId": "5",
+        "questions": []
+      },
+      {
+        "subjectId": "6",
+        "questions": []
+      },
+      {
+        "subjectId": "7",
+        "questions": []
+      },
+      {
+        "subjectId": "8",
+        "questions": []
+      }
+    ],
+    "created_at": "2026-01-21T08:00:00.000Z",
+    "updated_at": "2026-01-21T13:36:39.510Z",
+    "templateQuestions": [
+      {
+        "id": "tq-1768989580829",
+        "content": "Trong quá trình làm việc, điều Anh/Chị cảm nhận rõ nhất về phong cách làm việc của Sếp {name} là gì?",
+        "type": "text",
+        "required": true,
+        "minChars": 1000,
+        "description": "(Cách giao tiếp, cách ra quyết định, mức độ hỗ trợ, cách tương tác với đội ngũ…)"
+      },
+      {
+        "id": "tq-1768989619583",
+        "content": "Theo góc nhìn cá nhân, điểm Anh/Chị đánh thích hoặc ghi nhận nhất ở Sếp trên là gì?",
+        "type": "text",
+        "required": true
+      }
+    ],
+    "isActive": true
+  }
+]

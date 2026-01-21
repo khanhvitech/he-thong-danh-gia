@@ -1,0 +1,46 @@
+[
+  {
+    "id": "session-1768983664633",
+    "name": "test",
+    "description": "",
+    "evaluator_email": "",
+    "evaluatorEmail": "",
+    "evaluator_name": "",
+    "evaluatorName": "",
+    "deadline": "2026-01-23T23:59:00",
+    "subjects": [
+      {
+        "id": "1",
+        "name": "Lê Đức Nam",
+        "position": "Lãnh đạo",
+        "department": ""
+      }
+    ],
+    "status": "pending",
+    "token": "6c4c46c0-2fe7-489f-84e9-6c2662a1d287",
+    "created_at": "2026-01-21T08:21:04.642Z",
+    "createdAt": "2026-01-21T08:21:04.642Z"
+  },
+  {
+    "id": "session-1768984131445",
+    "name": "testtttttt",
+    "description": "",
+    "evaluator_email": "",
+    "evaluatorEmail": "",
+    "evaluator_name": "",
+    "evaluatorName": "",
+    "deadline": "2026-01-22T23:59:00",
+    "subjects": [
+      {
+        "id": "1",
+        "name": "Lê Đức Nam",
+        "position": "Lãnh đạo",
+        "department": ""
+      }
+    ],
+    "status": "pending",
+    "token": "8a06ef20-03fc-4479-a5f5-9ff12fc0005b",
+    "created_at": "2026-01-21T08:28:51.453Z",
+    "createdAt": "2026-01-21T08:28:51.453Z"
+  }
+]
