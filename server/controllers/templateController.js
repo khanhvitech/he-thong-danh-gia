@@ -55,6 +55,34 @@ function generateSlug(text) {
   return slug;
 }
 
+// Tạo slug unique (thêm timestamp nếu bị trùng)
+async function generateUniqueSlug(name, excludeId = null) {
+  const baseSlug = generateSlug(name);
+  
+  try {
+    // Kiểm tra slug đã tồn tại chưa
+    let query = 'SELECT id FROM question_templates WHERE slug = $1';
+    let params = [baseSlug];
+    
+    if (excludeId) {
+      query += ' AND id != $2';
+      params.push(excludeId);
+    }
+    
+    const result = await pool.query(query, params);
+    
+    if (result.rows.length === 0) {
+      return baseSlug; // Slug chưa tồn tại
+    }
+    
+    // Slug đã tồn tại, thêm timestamp
+    return `${baseSlug}-${Date.now()}`;
+  } catch (error) {
+    // Fallback: thêm timestamp để đảm bảo unique
+    return `${baseSlug}-${Date.now()}`;
+  }
+}
+
 // Helper functions for JSON fallback
 const readJSONFile = (file) => {
   try {
@@ -180,7 +208,7 @@ export async function getTemplateBySlug(req, res) {
 export async function createTemplate(req, res) {
   const { id, name, description, roles, questions, subjects, subjectQuestions, templateQuestions, isActive } = req.body;
   const templateId = id || `template-${Date.now()}`;
-  const slug = generateSlug(name);
+  const slug = await generateUniqueSlug(name);
   const now = new Date().toISOString();
   
   const newTemplate = {
@@ -246,7 +274,7 @@ export async function createTemplate(req, res) {
 export async function updateTemplate(req, res) {
   const { id } = req.params;
   const { name, description, roles, questions, subjects, subjectQuestions, templateQuestions, isActive } = req.body;
-  const slug = generateSlug(name);
+  const slug = await generateUniqueSlug(name, id);
   const now = new Date().toISOString();
   
   if (!usePostgres) {

@@ -1,6 +1,16 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:5000/api';
+// Tự động detect API URL dựa vào môi trường
+const getApiBaseUrl = () => {
+  // Production: sử dụng cùng domain với frontend
+  if (window.location.hostname !== 'localhost') {
+    return `${window.location.origin}/api`;
+  }
+  // Development: sử dụng localhost
+  return 'http://localhost:5000/api';
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 const api = axios.create({
   baseURL: API_BASE_URL,
