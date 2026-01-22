@@ -384,7 +384,7 @@ npm run init-db      # Khởi tạo bảng trong database
 
 Link đánh giá được tạo tự động từ tên bộ câu hỏi:
 - Tên: "Đánh giá lãnh đạo Q1/2024"
-- Link: `https://yourdomain.com/evaluate/danh-gia-lanh-dao-q12024`
+- Link: `https://form.vitechgroup.vn/danh-gia-lanh-dao-q12024`
 
 ---
 

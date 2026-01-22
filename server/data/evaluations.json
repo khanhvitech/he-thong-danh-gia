@@ -72,5 +72,29 @@
     ],
     "submittedAt": "2026-01-21T10:39:49.416Z",
     "status": "completed"
+  },
+  {
+    "id": "eval-1769048962021",
+    "templateId": "template-1769017446824",
+    "department": "Phòng Kỹ thuật",
+    "selectedSubjects": [
+      "5",
+      "2"
+    ],
+    "answers": {
+      "common-cq-1769017432331": 5
+    },
+    "subjectDetails": [
+      {
+        "id": "2",
+        "name": "Hoàng Thị Nga"
+      },
+      {
+        "id": "5",
+        "name": "Đặng Minh Tiến"
+      }
+    ],
+    "submittedAt": "2026-01-22T02:29:22.022Z",
+    "status": "completed"
   }
 ]

@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Download, Eye, Trash2, BarChart3, Users, Calendar, Building2 } from 'lucide-react';
 import { Card, CardHeader, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
+import { StarRating } from '../../components/ui/StarRating';
 import { templatesAPI, evaluationsAPI } from '../../services/api';
 import { QuestionTemplate } from '../../types';
 import * as XLSX from 'xlsx';
@@ -503,7 +504,16 @@ const EvaluationHistory: React.FC = () => {
                             <div className="space-y-2 pl-4 border-l-2 border-purple-200">
                               {questionAnswers.map((qa, idx) => (
                                 <div key={idx} className="p-3 bg-gray-50 rounded-lg">
-                                  <p className="text-gray-900 whitespace-pre-wrap">{qa.answer}</p>
+                                  {q.type === 'rating-5' || q.type === 'rating-10' ? (
+                                    <StarRating 
+                                      value={Number(qa.answer) || 0} 
+                                      max={q.type === 'rating-10' ? 10 : 5}
+                                      readonly 
+                                      size="sm"
+                                    />
+                                  ) : (
+                                    <p className="text-gray-900 whitespace-pre-wrap">{qa.answer}</p>
+                                  )}
                                   <p className="text-xs text-gray-500 mt-2">
                                     {qa.department} • {formatDate(qa.submittedAt)}
                                   </p>
@@ -536,7 +546,16 @@ const EvaluationHistory: React.FC = () => {
                             <div className="space-y-2 pl-4 border-l-2 border-blue-200">
                               {questionAnswers.map((qa, idx) => (
                                 <div key={idx} className="p-3 bg-gray-50 rounded-lg">
-                                  <p className="text-gray-900 whitespace-pre-wrap">{qa.answer}</p>
+                                  {q.type === 'rating-5' || q.type === 'rating-10' ? (
+                                    <StarRating 
+                                      value={Number(qa.answer) || 0} 
+                                      max={q.type === 'rating-10' ? 10 : 5}
+                                      readonly 
+                                      size="sm"
+                                    />
+                                  ) : (
+                                    <p className="text-gray-900 whitespace-pre-wrap">{qa.answer}</p>
+                                  )}
                                   <p className="text-xs text-gray-500 mt-2">
                                     {qa.department} • {formatDate(qa.submittedAt)}
                                   </p>
@@ -659,10 +678,12 @@ const EvaluationHistory: React.FC = () => {
                     // Parse the key to get question info
                     let questionLabel = key;
                     let displayValue = value;
+                    let questionType: string | undefined;
                     
                     if (key.startsWith('common-')) {
                       const commonQ = template.questions?.find(q => key === `common-${q.id}`);
                       questionLabel = commonQ?.content || key;
+                      questionType = commonQ?.type;
                       
                       if (commonQ?.type === 'ranking' && typeof value === 'object') {
                         displayValue = Object.entries(value)
@@ -684,13 +705,26 @@ const EvaluationHistory: React.FC = () => {
                       
                       if (tplQ) {
                         questionLabel = `[${subject?.name}] ${tplQ.content.replace(/\{name\}/g, subject?.name || '')}`;
+                        questionType = tplQ.type;
                       }
                     }
+                    
+                    const isRating = questionType === 'rating-5' || questionType === 'rating-10';
+                    const maxStars = questionType === 'rating-10' ? 10 : 5;
                     
                     return (
                       <div key={key} className="p-4 bg-gray-50 rounded-lg">
                         <p className="text-sm font-medium text-gray-700 mb-2">{questionLabel}</p>
-                        <p className="text-gray-900 whitespace-pre-wrap">{String(displayValue)}</p>
+                        {isRating ? (
+                          <StarRating 
+                            value={Number(displayValue) || 0} 
+                            max={maxStars}
+                            readonly 
+                            size="sm"
+                          />
+                        ) : (
+                          <p className="text-gray-900 whitespace-pre-wrap">{String(displayValue)}</p>
+                        )}
                       </div>
                     );
                   })}

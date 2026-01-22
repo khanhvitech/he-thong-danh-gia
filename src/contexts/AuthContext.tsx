@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode } from 'react';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -14,16 +14,18 @@ const ADMIN_CREDENTIALS = {
   password: 'ViTechGroup2025@'
 };
 
-export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+// Hàm kiểm tra auth từ localStorage (chạy đồng bộ khi khởi tạo)
+const getInitialAuthState = (): boolean => {
+  try {
+    return localStorage.getItem('authToken') === 'authenticated';
+  } catch {
+    return false;
+  }
+};
 
-  useEffect(() => {
-    // Kiểm tra session từ localStorage
-    const authToken = localStorage.getItem('authToken');
-    if (authToken === 'authenticated') {
-      setIsAuthenticated(true);
-    }
-  }, []);
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  // Khởi tạo state từ localStorage ngay từ đầu để tránh bị đăng xuất khi F5
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(getInitialAuthState);
 
   const login = (username: string, password: string): boolean => {
     if (username === ADMIN_CREDENTIALS.username && password === ADMIN_CREDENTIALS.password) {

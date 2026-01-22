@@ -163,97 +163,137 @@ export async function submitEvaluation(req, res) {
 export async function getTemplateStatistics(req, res) {
   const { templateId } = req.params;
   
-  // Get template
-  const templates = readJSONFile(TEMPLATES_FILE);
-  const template = templates.find(t => t.id === templateId);
-  
-  if (!template) {
-    return res.status(404).json({ error: 'Không tìm thấy template' });
-  }
-  
-  // Get evaluations
-  const evaluations = readJSONFile(EVALUATIONS_FILE);
-  const templateEvaluations = evaluations.filter(e => e.templateId === templateId);
-  
-  // Calculate statistics
-  const totalResponses = templateEvaluations.length;
-  
-  // Department statistics
-  const departmentStats = {};
-  templateEvaluations.forEach(e => {
-    const dept = e.department || 'Không xác định';
-    if (!departmentStats[dept]) {
-      departmentStats[dept] = 0;
+  try {
+    // Get template from PostgreSQL
+    let template;
+    if (usePostgres) {
+      const templateResult = await pool.query(
+        'SELECT * FROM question_templates WHERE id = $1',
+        [templateId]
+      );
+      if (templateResult.rows.length > 0) {
+        template = templateResult.rows[0];
+      }
     }
-    departmentStats[dept]++;
-  });
-  
-  // Subject statistics
-  const subjectStats = {};
-  const subjects = template.subjects || [];
-  
-  subjects.forEach(subject => {
-    const subjectEvals = templateEvaluations.filter(e => 
-      e.selectedSubjects?.includes(subject.id)
-    );
     
-    // Count ratings if any
-    let totalRating = 0;
-    let ratingCount = 0;
+    // Fallback to JSON if not found
+    if (!template) {
+      const templates = readJSONFile(TEMPLATES_FILE);
+      template = templates.find(t => t.id === templateId);
+    }
     
-    subjectEvals.forEach(e => {
+    if (!template) {
+      return res.status(404).json({ error: 'Không tìm thấy template' });
+    }
+    
+    // Get evaluations from PostgreSQL
+    let templateEvaluations = [];
+    if (usePostgres) {
+      const evalResult = await pool.query(
+        'SELECT * FROM evaluation_responses WHERE template_id = $1 ORDER BY submitted_at DESC',
+        [templateId]
+      );
+      templateEvaluations = evalResult.rows.map(row => ({
+        id: row.id,
+        templateId: row.template_id,
+        department: row.department,
+        selectedSubjects: row.selected_subjects,
+        answers: row.answers,
+        subjectDetails: row.subject_details,
+        submittedAt: row.submitted_at,
+        status: row.status
+      }));
+    }
+    
+    // Fallback to JSON if no results
+    if (templateEvaluations.length === 0) {
+      const evaluations = readJSONFile(EVALUATIONS_FILE);
+      templateEvaluations = evaluations.filter(e => e.templateId === templateId);
+    }
+  
+    // Calculate statistics
+    const totalResponses = templateEvaluations.length;
+    
+    // Department statistics
+    const departmentStats = {};
+    templateEvaluations.forEach(e => {
+      const dept = e.department || 'Không xác định';
+      if (!departmentStats[dept]) {
+        departmentStats[dept] = 0;
+      }
+      departmentStats[dept]++;
+    });
+    
+    // Subject statistics
+    const subjectStats = {};
+    const subjects = template.subjects || [];
+    
+    subjects.forEach(subject => {
+      const subjectEvals = templateEvaluations.filter(e => 
+        e.selectedSubjects?.includes(subject.id)
+      );
+      
+      // Count ratings if any
+      let totalRating = 0;
+      let ratingCount = 0;
+      
+      subjectEvals.forEach(e => {
+        const answers = e.answers || {};
+        Object.keys(answers).forEach(key => {
+          if (key.startsWith(`${subject.id}-`) && typeof answers[key] === 'number') {
+            totalRating += answers[key];
+            ratingCount++;
+          }
+        });
+      });
+      
+      subjectStats[subject.id] = {
+        name: subject.name,
+        totalEvaluations: subjectEvals.length,
+        averageRating: ratingCount > 0 ? (totalRating / ratingCount).toFixed(2) : null,
+      };
+    });
+    
+    // Get ranking data
+    const rankingData = {};
+    subjects.forEach(subject => {
+      rankingData[subject.id] = {
+        name: subject.name,
+        ranks: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0 }
+      };
+    });
+    
+    templateEvaluations.forEach(e => {
       const answers = e.answers || {};
       Object.keys(answers).forEach(key => {
-        if (key.startsWith(`${subject.id}-`) && typeof answers[key] === 'number') {
-          totalRating += answers[key];
-          ratingCount++;
+        if (key.startsWith('common-')) {
+          const value = answers[key];
+          if (typeof value === 'object') {
+            // This is a ranking answer
+            Object.keys(value).forEach(rank => {
+              const subjectId = value[rank];
+              if (rankingData[subjectId] && rankingData[subjectId].ranks[rank] !== undefined) {
+                rankingData[subjectId].ranks[rank]++;
+              }
+            });
+          }
         }
       });
     });
     
-    subjectStats[subject.id] = {
-      name: subject.name,
-      totalEvaluations: subjectEvals.length,
-      averageRating: ratingCount > 0 ? (totalRating / ratingCount).toFixed(2) : null,
-    };
-  });
-  
-  // Get ranking data
-  const rankingData = {};
-  subjects.forEach(subject => {
-    rankingData[subject.id] = {
-      name: subject.name,
-      ranks: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0 }
-    };
-  });
-  
-  templateEvaluations.forEach(e => {
-    const answers = e.answers || {};
-    Object.keys(answers).forEach(key => {
-      if (key.startsWith('common-')) {
-        const value = answers[key];
-        if (typeof value === 'object') {
-          // This is a ranking answer
-          Object.keys(value).forEach(rank => {
-            const subjectId = value[rank];
-            if (rankingData[subjectId] && rankingData[subjectId].ranks[rank] !== undefined) {
-              rankingData[subjectId].ranks[rank]++;
-            }
-          });
-        }
-      }
+    res.json({
+      templateId,
+      templateName: template.name,
+      totalResponses,
+      departmentStats,
+      subjectStats,
+      rankingData,
+      evaluations: templateEvaluations,
     });
-  });
-  
-  res.json({
-    templateId,
-    templateName: template.name,
-    totalResponses,
-    departmentStats,
-    subjectStats,
-    rankingData,
-    evaluations: templateEvaluations,
-  });
+  } catch (error) {
+    console.error('Error getting template statistics:', error);
+    res.status(500).json({ error: 'Lỗi khi lấy thống kê' });
+  }
 }
 
 // Delete evaluation

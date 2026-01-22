@@ -34,7 +34,12 @@ CREATE TABLE IF NOT EXISTS evaluation_sessions (
 -- Bảng evaluation_responses: Lưu kết quả đánh giá
 CREATE TABLE IF NOT EXISTS evaluation_responses (
     id VARCHAR(255) PRIMARY KEY,
+    template_id VARCHAR(255),
     session_id VARCHAR(255) REFERENCES evaluation_sessions(id) ON DELETE CASCADE,
+    department VARCHAR(255),
+    selected_subjects JSONB DEFAULT '[]',
+    answers JSONB DEFAULT '{}',
+    subject_details JSONB DEFAULT '[]',
     evaluator_name VARCHAR(255),
     evaluator_email VARCHAR(255),
     subject_evaluations JSONB DEFAULT '[]',
@@ -46,6 +51,7 @@ CREATE TABLE IF NOT EXISTS evaluation_responses (
 CREATE INDEX IF NOT EXISTS idx_sessions_token ON evaluation_sessions(token);
 CREATE INDEX IF NOT EXISTS idx_sessions_status ON evaluation_sessions(status);
 CREATE INDEX IF NOT EXISTS idx_responses_session ON evaluation_responses(session_id);
+CREATE INDEX IF NOT EXISTS idx_responses_template ON evaluation_responses(template_id);
 CREATE INDEX IF NOT EXISTS idx_templates_created ON question_templates(created_at DESC);
 
 -- Trigger để tự động update updated_at

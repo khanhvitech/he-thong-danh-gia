@@ -154,7 +154,7 @@ const QuestionTemplates: React.FC = () => {
                       {template.isActive ? 'Tắt' : 'Bật'}
                     </Button>
                     
-                    <Link to={`/evaluate/${template.slug || template.id}`} target="_blank">
+                    <Link to={`/${template.slug || template.id}`} target="_blank">
                       <Button variant="ghost" size="sm" icon={<Eye className="w-4 h-4" />}>
                         Xem trước
                       </Button>
@@ -176,7 +176,7 @@ const QuestionTemplates: React.FC = () => {
                         icon={<Copy className="w-4 h-4" />}
                         onClick={() => {
                           const slug = template.slug || template.id;
-                          const link = `${window.location.origin}/evaluate/${slug}`;
+                          const link = `${window.location.origin}/${slug}`;
                           navigator.clipboard.writeText(link);
                           alert('Đã copy link đánh giá!');
                         }}

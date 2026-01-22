@@ -33,7 +33,7 @@ function App() {
           </Route>
 
           {/* Evaluator Routes - Public (cho người đánh giá) */}
-          <Route path="/evaluate/:slug" element={<EvaluationForm />} />
+          <Route path="/:slug" element={<EvaluationForm />} />
 
           {/* Default Route */}
           <Route path="/" element={<Navigate to="/admin" replace />} />
