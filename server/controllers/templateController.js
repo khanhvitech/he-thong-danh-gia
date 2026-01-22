@@ -211,8 +211,8 @@ export async function createTemplate(req, res) {
   try {
     const result = await pool.query(
       `INSERT INTO question_templates 
-       (id, name, slug, description, roles, questions, subjects, subject_questions, is_active, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
+       (id, name, slug, description, roles, questions, subjects, subject_questions, template_questions, is_active, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
        RETURNING *`,
       [
         templateId,
@@ -223,6 +223,7 @@ export async function createTemplate(req, res) {
         JSON.stringify(questions || []),
         JSON.stringify(subjects || []),
         JSON.stringify(subjectQuestions || []),
+        JSON.stringify(templateQuestions || []),
         isActive || false
       ]
     );
@@ -281,8 +282,8 @@ export async function updateTemplate(req, res) {
     const result = await pool.query(
       `UPDATE question_templates 
        SET name = $1, slug = $2, description = $3, roles = $4, questions = $5, 
-           subjects = $6, subject_questions = $7, is_active = $8, updated_at = NOW()
-       WHERE id = $9
+           subjects = $6, subject_questions = $7, template_questions = $8, is_active = $9, updated_at = NOW()
+       WHERE id = $10
        RETURNING *`,
       [
         name,
@@ -292,7 +293,8 @@ export async function updateTemplate(req, res) {
         JSON.stringify(questions || []),
         JSON.stringify(subjects || []),
         JSON.stringify(subjectQuestions || []),
-        isActive || false,
+        JSON.stringify(templateQuestions || []),
+        isActive !== undefined ? isActive : false,
         id
       ]
     );
