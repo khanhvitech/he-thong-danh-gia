@@ -6,6 +6,9 @@ export type QuestionType =
   | 'multiple-choice' 
   | 'slider' 
   | 'yes-no'
+  | 'yesno'
+  | 'rating'
+  | 'scale'
   | 'ranking';
 
 export interface Question {
@@ -36,12 +39,15 @@ export interface QuestionTemplate {
   id: string;
   name: string;
   slug?: string;
+  type?: 'bld' | 'nhan-vien' | 'chung' | 'other'; // Loại template
   description: string;
   roles: string[];
   questions: Question[]; // Câu hỏi chung
   subjects?: SubjectInTemplate[]; // Danh sách người cần đánh giá
   subjectQuestions?: SubjectQuestions[]; // Câu hỏi riêng cho từng người
   templateQuestions?: Question[]; // Câu hỏi mẫu với biến {name}
+  selectionQuestion?: string; // Câu hỏi chọn người (tùy chỉnh cho mỗi template)
+  minSelections?: number; // Số người tối thiểu phải chọn
   isActive?: boolean; // Trạng thái bật/tắt đánh giá
   createdAt: string;
   updatedAt: string;

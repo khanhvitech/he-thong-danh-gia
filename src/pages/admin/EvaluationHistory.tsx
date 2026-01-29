@@ -37,6 +37,7 @@ const EvaluationHistory: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'list' | 'stats'>('stats');
   const [selectedEvaluation, setSelectedEvaluation] = useState<Evaluation | null>(null);
+  const [filterDepartment, setFilterDepartment] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -276,6 +277,25 @@ const EvaluationHistory: React.FC = () => {
   }
 
   const subjects = template.subjects || [];
+  
+  // Kiểm tra xem đây có phải template nhân viên không
+  const isEmployeeTemplate = (template as any).type === 'nhan-vien';
+  
+  // Kiểm tra xem đây có phải template đánh giá chung không
+  const isGeneralTemplate = (template as any).type === 'chung';
+  
+  // Lọc subjects theo phòng ban nếu có filter
+  const filteredSubjects = filterDepartment
+    ? subjects.filter(s => {
+        if (!s.department) return false;
+        const parts = s.department.split(' - ');
+        return parts[0] === filterDepartment;
+      })
+    : subjects;
+  
+  // Label động theo loại template
+  const subjectLabel = isEmployeeTemplate ? 'nhân viên' : isGeneralTemplate ? 'câu trả lời' : 'lãnh đạo';
+  const subjectLabelCapital = isEmployeeTemplate ? 'Nhân viên' : isGeneralTemplate ? 'Người trả lời' : 'Lãnh đạo';
 
   return (
     <div className="space-y-6">
@@ -373,7 +393,7 @@ const EvaluationHistory: React.FC = () => {
               </div>
               <div>
                 <p className="text-2xl font-bold text-gray-900">{subjects.length}</p>
-                <p className="text-sm text-gray-600">Lãnh đạo</p>
+                <p className="text-sm text-gray-600">{subjectLabelCapital}</p>
               </div>
             </div>
           </CardContent>
@@ -408,12 +428,33 @@ const EvaluationHistory: React.FC = () => {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {/* Nút "Tất cả" để xóa filter */}
+                  <button
+                    onClick={() => setFilterDepartment(null)}
+                    className={`p-4 rounded-lg text-left transition-all ${
+                      filterDepartment === null
+                        ? 'bg-purple-100 ring-2 ring-purple-500'
+                        : 'bg-gray-50 hover:bg-gray-100'
+                    }`}
+                  >
+                    <p className="font-medium text-gray-900">Tất cả</p>
+                    <p className="text-2xl font-bold text-purple-600">{statistics?.totalResponses || 0}</p>
+                    <p className="text-xs text-gray-500">đánh giá</p>
+                  </button>
                   {Object.entries(statistics.departmentStats).map(([dept, count]) => (
-                    <div key={dept} className="p-4 bg-gray-50 rounded-lg">
+                    <button
+                      key={dept}
+                      onClick={() => setFilterDepartment(dept)}
+                      className={`p-4 rounded-lg text-left transition-all ${
+                        filterDepartment === dept
+                          ? 'bg-purple-100 ring-2 ring-purple-500'
+                          : 'bg-gray-50 hover:bg-gray-100'
+                      }`}
+                    >
                       <p className="font-medium text-gray-900">{dept}</p>
                       <p className="text-2xl font-bold text-purple-600">{count}</p>
                       <p className="text-xs text-gray-500">đánh giá</p>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </CardContent>
@@ -423,14 +464,21 @@ const EvaluationHistory: React.FC = () => {
           {/* Subject Stats */}
           <Card>
             <CardHeader>
-              <h2 className="text-lg font-semibold">Thống kê theo lãnh đạo</h2>
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold">Thống kê theo {subjectLabel}</h2>
+                {filterDepartment && (
+                  <span className="text-sm text-purple-600 bg-purple-50 px-3 py-1 rounded-full">
+                    🔍 Lọc: {filterDepartment}
+                  </span>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b">
-                      <th className="text-left py-3 px-4 font-medium text-gray-700">Lãnh đạo</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-700">{subjectLabelCapital}</th>
                       <th className="text-center py-3 px-4 font-medium text-gray-700">Số lượt đánh giá</th>
                       <th className="text-center py-3 px-4 font-medium text-gray-700">Xếp hạng 1</th>
                       <th className="text-center py-3 px-4 font-medium text-gray-700">Xếp hạng 2</th>
@@ -438,7 +486,7 @@ const EvaluationHistory: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {subjects.map((subject) => {
+                    {filteredSubjects.map((subject) => {
                       const stats = statistics?.subjectStats?.[subject.id];
                       const ranking = statistics?.rankingData?.[subject.id];
                       return (
@@ -479,11 +527,18 @@ const EvaluationHistory: React.FC = () => {
           {/* Text Responses by Subject */}
           <Card>
             <CardHeader>
-              <h2 className="text-lg font-semibold">Các đánh giá chi tiết theo lãnh đạo</h2>
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold">Các đánh giá chi tiết theo {subjectLabel}</h2>
+                {filterDepartment && (
+                  <span className="text-sm text-purple-600 bg-purple-50 px-3 py-1 rounded-full">
+                    🔍 Lọc: {filterDepartment}
+                  </span>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-8">
-                {subjects.map((subject) => {
+                {filteredSubjects.map((subject) => {
                   // Get all evaluations for this subject
                   const subjectEvaluations = evaluations.filter(e => 
                     e.selectedSubjects?.includes(subject.id)

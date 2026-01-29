@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Plus, Trash2, Save } from 'lucide-react';
+import { Plus, Trash2, Save, Edit2, UserPlus } from 'lucide-react';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Input, Select } from '../../components/ui/Input';
+import { Modal, ModalFooter } from '../../components/ui/Modal';
 import { Question, QuestionTemplate, SubjectInTemplate } from '../../types';
 import { templatesAPI } from '../../services/api';
 
@@ -22,7 +23,7 @@ const CreateTemplate: React.FC = () => {
   const [commonQuestions, setCommonQuestions] = useState<Question[]>([]);
 
   // List of subjects (people) with checkbox selection
-  const [allSubjects] = useState<SubjectInTemplate[]>([
+  const [allSubjects, setAllSubjects] = useState<SubjectInTemplate[]>([
     { id: '2', name: 'Hoàng Thị Nga', position: 'Lãnh đạo', department: 'Ban Giám Đốc' },
     { id: '3', name: 'Nguyễn Đăng Khánh', position: 'Lãnh đạo', department: 'Ban Giám Đốc' },
     { id: '4', name: 'Phạm Ngọc Tuân', position: 'Lãnh đạo', department: 'Ban Giám Đốc' },
@@ -32,6 +33,11 @@ const CreateTemplate: React.FC = () => {
     { id: '8', name: 'Tống Thị Quyên', position: 'Lãnh đạo', department: 'Ban Giám Đốc' },
   ]);
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
+
+  // Modal state for adding/editing subjects
+  const [showSubjectModal, setShowSubjectModal] = useState(false);
+  const [editingSubject, setEditingSubject] = useState<SubjectInTemplate | null>(null);
+  const [subjectForm, setSubjectForm] = useState({ name: '', position: 'Lãnh đạo', department: 'Ban Giám Đốc' });
 
   // Template questions with {name} variable - applies to all selected subjects
   const [templateQuestions, setTemplateQuestions] = useState<Question[]>([]);
@@ -64,8 +70,17 @@ const CreateTemplate: React.FC = () => {
       const tplQuestions = template.templateQuestions || template.template_questions || [];
       setTemplateQuestions(tplQuestions);
       
+      // Load subjects from template and merge with default list
+      const loadedSubjects = template.subjects || [];
+      if (loadedSubjects.length > 0) {
+        // Merge loaded subjects with existing ones (avoid duplicates)
+        const existingIds = allSubjects.map(s => s.id);
+        const newSubjects = loadedSubjects.filter((s: SubjectInTemplate) => !existingIds.includes(s.id));
+        setAllSubjects([...allSubjects, ...newSubjects]);
+      }
+      
       // Fill in selected subjects
-      const subjectIds = (template.subjects || []).map((s: SubjectInTemplate) => s.id);
+      const subjectIds = loadedSubjects.map((s: SubjectInTemplate) => s.id);
       setSelectedSubjects(subjectIds);
       
       // Fill in individual subject questions
@@ -126,6 +141,65 @@ const CreateTemplate: React.FC = () => {
         ...subjectQuestions,
         [subjectId]: [],
       });
+    }
+  };
+
+  // Open modal to add new subject (leader)
+  const handleAddSubject = () => {
+    setEditingSubject(null);
+    setSubjectForm({ name: '', position: 'Lãnh đạo', department: 'Ban Giám Đốc' });
+    setShowSubjectModal(true);
+  };
+
+  // Open modal to edit existing subject
+  const handleEditSubject = (subject: SubjectInTemplate) => {
+    setEditingSubject(subject);
+    setSubjectForm({ 
+      name: subject.name, 
+      position: subject.position || 'Lãnh đạo', 
+      department: subject.department || 'Ban Giám Đốc' 
+    });
+    setShowSubjectModal(true);
+  };
+
+  // Save subject (add or update)
+  const handleSaveSubject = () => {
+    if (!subjectForm.name.trim()) {
+      alert('Vui lòng nhập tên lãnh đạo');
+      return;
+    }
+
+    if (editingSubject) {
+      // Update existing subject
+      setAllSubjects(allSubjects.map(s => 
+        s.id === editingSubject.id 
+          ? { ...s, name: subjectForm.name, position: subjectForm.position, department: subjectForm.department }
+          : s
+      ));
+    } else {
+      // Add new subject
+      const newSubject: SubjectInTemplate = {
+        id: `subject-${Date.now()}`,
+        name: subjectForm.name,
+        position: subjectForm.position,
+        department: subjectForm.department,
+      };
+      setAllSubjects([...allSubjects, newSubject]);
+    }
+    setShowSubjectModal(false);
+  };
+
+  // Delete subject from the list
+  const handleDeleteSubject = (subjectId: string) => {
+    if (window.confirm('Bạn có chắc chắn muốn xóa lãnh đạo này khỏi danh sách?')) {
+      // Remove from allSubjects
+      setAllSubjects(allSubjects.filter(s => s.id !== subjectId));
+      // Remove from selectedSubjects if selected
+      setSelectedSubjects(selectedSubjects.filter(id => id !== subjectId));
+      // Remove subject questions if any
+      const newSubjectQuestions = { ...subjectQuestions };
+      delete newSubjectQuestions[subjectId];
+      setSubjectQuestions(newSubjectQuestions);
     }
   };
 
@@ -205,6 +279,7 @@ const CreateTemplate: React.FC = () => {
     const template: Omit<QuestionTemplate, 'id' | 'createdAt' | 'updatedAt'> = {
       name,
       description,
+      type: 'bld', // Loại template đánh giá Ban Lãnh Đạo
       roles: [],
       questions: commonQuestions,
       subjects: selectedSubjects.map((id) => {
@@ -236,9 +311,10 @@ const CreateTemplate: React.FC = () => {
         alert('Đã lưu bộ câu hỏi thành công!');
       }
       navigate('/admin/templates');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving template:', error);
-      alert('Lỗi khi lưu bộ câu hỏi. Vui lòng thử lại.');
+      const errorMessage = error.response?.data?.error || 'Lỗi khi lưu bộ câu hỏi. Vui lòng thử lại.';
+      alert(errorMessage);
     }
   };
 
@@ -469,7 +545,17 @@ const CreateTemplate: React.FC = () => {
           {/* Subjects Selection Section */}
           <Card className="mb-6">
             <CardContent className="p-6">
-              <h2 className="text-lg font-semibold mb-2">👥 Chọn người cần đánh giá</h2>
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-lg font-semibold">👥 Chọn người cần đánh giá</h2>
+                <Button
+                  onClick={handleAddSubject}
+                  variant="primary"
+                  size="sm"
+                  icon={<UserPlus />}
+                >
+                  Thêm lãnh đạo
+                </Button>
+              </div>
               <p className="text-base text-gray-700 mb-1">
                 <strong>1. Anh/Chị đã có đủ trải nghiệm làm việc hoặc tương tác để chia sẻ góc nhìn với những lãnh đạo nào dưới đây?</strong>
               </p>
@@ -487,24 +573,53 @@ const CreateTemplate: React.FC = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {allSubjects.map((subject) => (
-                  <label
+                  <div
                     key={subject.id}
-                    className={`flex items-start p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                    className={`flex items-center p-4 rounded-lg border-2 transition-all ${
                       selectedSubjects.includes(subject.id)
                         ? 'bg-purple-50 border-purple-400'
                         : 'bg-gray-50 border-gray-200 hover:border-gray-300'
                     }`}
                   >
-                    <input
-                      type="checkbox"
-                      checked={selectedSubjects.includes(subject.id)}
-                      onChange={() => toggleSubject(subject.id)}
-                      className="mt-1 mr-3 w-4 h-4"
-                    />
-                    <div className="flex-1">
-                      <div className="font-medium text-gray-900">{subject.name}</div>
+                    <label className="flex items-center flex-1 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectedSubjects.includes(subject.id)}
+                        onChange={() => toggleSubject(subject.id)}
+                        className="mr-3 w-4 h-4"
+                      />
+                      <div className="flex-1">
+                        <div className="font-medium text-gray-900">{subject.name}</div>
+                        {subject.position && (
+                          <div className="text-xs text-gray-500">{subject.position}</div>
+                        )}
+                      </div>
+                    </label>
+                    <div className="flex items-center gap-1 ml-2">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEditSubject(subject);
+                        }}
+                        className="p-1.5 text-blue-600 hover:bg-blue-100 rounded transition-colors"
+                        title="Sửa tên"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteSubject(subject.id);
+                        }}
+                        className="p-1.5 text-red-600 hover:bg-red-100 rounded transition-colors"
+                        title="Xóa"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
-                  </label>
+                  </div>
                 ))}
               </div>
             </CardContent>
@@ -907,6 +1022,42 @@ const CreateTemplate: React.FC = () => {
           Lưu bộ câu hỏi
         </Button>
       </div>
+
+      {/* Modal for adding/editing subjects */}
+      <Modal
+        isOpen={showSubjectModal}
+        onClose={() => setShowSubjectModal(false)}
+        title={editingSubject ? 'Sửa thông tin lãnh đạo' : 'Thêm lãnh đạo mới'}
+        size="md"
+      >
+        <div className="space-y-4">
+          <Input
+            label="Tên lãnh đạo"
+            value={subjectForm.name}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
+              setSubjectForm({ ...subjectForm, name: e.target.value })
+            }
+            placeholder="Nhập họ tên lãnh đạo..."
+            required
+          />
+          <Input
+            label="Chức vụ"
+            value={subjectForm.position}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
+              setSubjectForm({ ...subjectForm, position: e.target.value })
+            }
+            placeholder="Vd: Lãnh đạo, Giám đốc..."
+          />
+        </div>
+        <ModalFooter>
+          <Button variant="outline" onClick={() => setShowSubjectModal(false)}>
+            Hủy
+          </Button>
+          <Button onClick={handleSaveSubject} icon={<Save />}>
+            {editingSubject ? 'Cập nhật' : 'Thêm mới'}
+          </Button>
+        </ModalFooter>
+      </Modal>
     </div>
   );
 };

@@ -1,53 +1,10 @@
 import pool from '../db.js';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const DATA_DIR = path.join(__dirname, '..', 'data');
-const EVALUATIONS_FILE = path.join(DATA_DIR, 'evaluations.json');
-const TEMPLATES_FILE = path.join(DATA_DIR, 'templates.json');
-
-// Ensure data directory exists
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-}
-
-// Helper functions for JSON fallback
-const readJSONFile = (file) => {
-  try {
-    if (!fs.existsSync(file)) {
-      fs.writeFileSync(file, JSON.stringify([], null, 2));
-      return [];
-    }
-    const data = fs.readFileSync(file, 'utf-8');
-    return JSON.parse(data);
-  } catch (error) {
-    console.error(`Error reading ${file}:`, error);
-    return [];
-  }
-};
-
-const writeJSONFile = (file, data) => {
-  try {
-    fs.writeFileSync(file, JSON.stringify(data, null, 2));
-    return true;
-  } catch (error) {
-    console.error(`Error writing ${file}:`, error);
-    return false;
-  }
-};
-
-// Check if PostgreSQL is available
-let usePostgres = true;
 
 // Helper: Convert PostgreSQL row to frontend format
 function formatEvaluationResponse(row) {
   if (!row) return null;
   return {
     ...row,
-    // Add camelCase aliases for frontend compatibility
     templateId: row.template_id || row.templateId,
     sessionId: row.session_id || row.sessionId,
     selectedSubjects: row.selected_subjects || row.selectedSubjects || [],
@@ -58,33 +15,20 @@ function formatEvaluationResponse(row) {
 
 // Get all evaluations
 export async function getAllEvaluations(req, res) {
-  if (!usePostgres) {
-    const evaluations = readJSONFile(EVALUATIONS_FILE);
-    return res.json(evaluations.map(formatEvaluationResponse));
-  }
-
   try {
     const result = await pool.query(
       'SELECT * FROM evaluation_responses ORDER BY submitted_at DESC'
     );
     res.json(result.rows.map(formatEvaluationResponse));
   } catch (error) {
-    console.error('Error fetching evaluations, using JSON fallback:', error);
-    usePostgres = false;
-    const evaluations = readJSONFile(EVALUATIONS_FILE);
-    res.json(evaluations.map(formatEvaluationResponse));
+    console.error('Error fetching evaluations:', error);
+    res.status(500).json({ error: 'Lỗi khi tải danh sách đánh giá' });
   }
 }
 
 // Get evaluations by template ID
 export async function getEvaluationsByTemplate(req, res) {
   const { templateId } = req.params;
-  
-  if (!usePostgres) {
-    const evaluations = readJSONFile(EVALUATIONS_FILE);
-    const filtered = evaluations.filter(e => e.templateId === templateId);
-    return res.json(filtered.map(formatEvaluationResponse));
-  }
 
   try {
     const result = await pool.query(
@@ -93,27 +37,24 @@ export async function getEvaluationsByTemplate(req, res) {
     );
     res.json(result.rows.map(formatEvaluationResponse));
   } catch (error) {
-    console.error('Error fetching evaluations, using JSON fallback:', error);
-    usePostgres = false;
-    const evaluations = readJSONFile(EVALUATIONS_FILE);
-    const filtered = evaluations.filter(e => e.templateId === templateId);
-    res.json(filtered.map(formatEvaluationResponse));
+    console.error('Error fetching evaluations by template:', error);
+    res.status(500).json({ error: 'Lỗi khi tải danh sách đánh giá' });
   }
 }
 
 // Get evaluations by session ID (legacy)
 export async function getEvaluationsBySession(req, res) {
+  const { sessionId } = req.params;
+
   try {
-    const { sessionId } = req.params;
     const result = await pool.query(
       'SELECT * FROM evaluation_responses WHERE session_id = $1 ORDER BY submitted_at DESC',
       [sessionId]
     );
-    
-    res.json(result.rows);
+    res.json(result.rows.map(formatEvaluationResponse));
   } catch (error) {
-    console.error('Error fetching evaluations:', error);
-    res.status(500).json({ error: 'Lỗi khi lấy evaluations' });
+    console.error('Error fetching evaluations by session:', error);
+    res.status(500).json({ error: 'Lỗi khi tải danh sách đánh giá' });
   }
 }
 
@@ -127,23 +68,7 @@ export async function submitEvaluation(req, res) {
     subjectDetails
   } = req.body;
   
-  const evaluation = {
-    id: `eval-${Date.now()}`,
-    templateId,
-    department,
-    selectedSubjects,
-    answers,
-    subjectDetails,
-    submittedAt: new Date().toISOString(),
-    status: 'completed'
-  };
-
-  if (!usePostgres) {
-    const evaluations = readJSONFile(EVALUATIONS_FILE);
-    evaluations.push(evaluation);
-    writeJSONFile(EVALUATIONS_FILE, evaluations);
-    return res.status(201).json(formatEvaluationResponse(evaluation));
-  }
+  const evaluationId = `eval-${Date.now()}`;
 
   try {
     const result = await pool.query(
@@ -152,7 +77,7 @@ export async function submitEvaluation(req, res) {
        VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7)
        RETURNING *`,
       [
-        evaluation.id,
+        evaluationId,
         templateId,
         department,
         JSON.stringify(selectedSubjects || []),
@@ -164,12 +89,8 @@ export async function submitEvaluation(req, res) {
     
     res.status(201).json(formatEvaluationResponse(result.rows[0]));
   } catch (error) {
-    console.error('Error submitting evaluation, using JSON fallback:', error);
-    usePostgres = false;
-    const evaluations = readJSONFile(EVALUATIONS_FILE);
-    evaluations.push(evaluation);
-    writeJSONFile(EVALUATIONS_FILE, evaluations);
-    res.status(201).json(formatEvaluationResponse(evaluation));
+    console.error('Error submitting evaluation:', error);
+    res.status(500).json({ error: 'Lỗi khi gửi đánh giá' });
   }
 }
 
@@ -198,42 +119,23 @@ export async function getTemplateStatistics(req, res) {
   
   try {
     // Get template from PostgreSQL
-    let template;
-    if (usePostgres) {
-      const templateResult = await pool.query(
-        'SELECT * FROM question_templates WHERE id = $1',
-        [templateId]
-      );
-      if (templateResult.rows.length > 0) {
-        template = formatTemplate(templateResult.rows[0]);
-      }
+    const templateResult = await pool.query(
+      'SELECT * FROM question_templates WHERE id = $1',
+      [templateId]
+    );
+    
+    if (templateResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Không tìm thấy bộ câu hỏi' });
     }
     
-    // Fallback to JSON if not found
-    if (!template) {
-      const templates = readJSONFile(TEMPLATES_FILE);
-      template = templates.find(t => t.id === templateId);
-    }
-    
-    if (!template) {
-      return res.status(404).json({ error: 'Không tìm thấy template' });
-    }
+    const template = formatTemplate(templateResult.rows[0]);
     
     // Get evaluations from PostgreSQL
-    let templateEvaluations = [];
-    if (usePostgres) {
-      const evalResult = await pool.query(
-        'SELECT * FROM evaluation_responses WHERE template_id = $1 ORDER BY submitted_at DESC',
-        [templateId]
-      );
-      templateEvaluations = evalResult.rows.map(row => formatEvaluationResponse(row));
-    }
-    
-    // Fallback to JSON if no results
-    if (templateEvaluations.length === 0) {
-      const evaluations = readJSONFile(EVALUATIONS_FILE);
-      templateEvaluations = evaluations.filter(e => e.templateId === templateId);
-    }
+    const evalResult = await pool.query(
+      'SELECT * FROM evaluation_responses WHERE template_id = $1 ORDER BY submitted_at DESC',
+      [templateId]
+    );
+    const templateEvaluations = evalResult.rows.map(row => formatEvaluationResponse(row));
   
     // Calculate statistics
     const totalResponses = templateEvaluations.length;
@@ -323,13 +225,6 @@ export async function getTemplateStatistics(req, res) {
 // Delete evaluation
 export async function deleteEvaluation(req, res) {
   const { id } = req.params;
-  
-  if (!usePostgres) {
-    const evaluations = readJSONFile(EVALUATIONS_FILE);
-    const filtered = evaluations.filter(e => e.id !== id);
-    writeJSONFile(EVALUATIONS_FILE, filtered);
-    return res.json({ message: 'Đã xóa đánh giá' });
-  }
 
   try {
     await pool.query('DELETE FROM evaluation_responses WHERE id = $1', [id]);
@@ -343,14 +238,6 @@ export async function deleteEvaluation(req, res) {
 // Delete all evaluations by template
 export async function deleteAllEvaluationsByTemplate(req, res) {
   const { templateId } = req.params;
-  
-  if (!usePostgres) {
-    const evaluations = readJSONFile(EVALUATIONS_FILE);
-    const filtered = evaluations.filter(e => e.templateId !== templateId);
-    const deletedCount = evaluations.length - filtered.length;
-    writeJSONFile(EVALUATIONS_FILE, filtered);
-    return res.json({ message: `Đã xóa ${deletedCount} đánh giá`, deletedCount });
-  }
 
   try {
     const result = await pool.query('DELETE FROM evaluation_responses WHERE template_id = $1', [templateId]);
@@ -363,11 +250,5 @@ export async function deleteAllEvaluationsByTemplate(req, res) {
 
 // Get session statistics (legacy)
 export async function getSessionStatistics(req, res) {
-  try {
-    const { sessionId } = req.params;
-    res.json({ message: 'Legacy endpoint - use template statistics instead' });
-  } catch (error) {
-    console.error('Statistics error:', error);
-    res.status(500).json({ error: 'Lỗi khi lấy thống kê' });
-  }
+  res.json({ message: 'Legacy endpoint - use template statistics instead' });
 }

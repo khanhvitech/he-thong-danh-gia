@@ -1,21 +1,7 @@
 import pool from '../db.js';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const DATA_DIR = path.join(__dirname, '..', 'data');
-const TEMPLATES_FILE = path.join(DATA_DIR, 'templates.json');
-
-// Ensure data directory exists
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-}
 
 // Hàm chuyển đổi tiếng Việt thành slug
 function generateSlug(text) {
-  // Bảng chuyển đổi tiếng Việt
   const vietnameseMap = {
     'à': 'a', 'á': 'a', 'ạ': 'a', 'ả': 'a', 'ã': 'a',
     'â': 'a', 'ầ': 'a', 'ấ': 'a', 'ậ': 'a', 'ẩ': 'a', 'ẫ': 'a',
@@ -47,117 +33,60 @@ function generateSlug(text) {
   
   let slug = text.split('').map(char => vietnameseMap[char] || char).join('');
   slug = slug.toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, '')  // Xóa ký tự đặc biệt
-    .replace(/\s+/g, '-')          // Thay khoảng trắng bằng -
-    .replace(/-+/g, '-')           // Xóa -- thành -
-    .replace(/^-|-$/g, '');        // Xóa - ở đầu và cuối
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
   
   return slug;
 }
 
-// Tạo slug unique (thêm timestamp nếu bị trùng)
-async function generateUniqueSlug(name, excludeId = null) {
-  const baseSlug = generateSlug(name);
+// Check slug duplicate
+async function checkSlugDuplicate(slug, excludeId = null) {
+  let query = 'SELECT id FROM question_templates WHERE slug = $1';
+  let params = [slug];
   
-  try {
-    // Kiểm tra slug đã tồn tại chưa
-    let query = 'SELECT id FROM question_templates WHERE slug = $1';
-    let params = [baseSlug];
-    
-    if (excludeId) {
-      query += ' AND id != $2';
-      params.push(excludeId);
-    }
-    
-    const result = await pool.query(query, params);
-    
-    if (result.rows.length === 0) {
-      return baseSlug; // Slug chưa tồn tại
-    }
-    
-    // Slug đã tồn tại, thêm timestamp
-    return `${baseSlug}-${Date.now()}`;
-  } catch (error) {
-    // Fallback: thêm timestamp để đảm bảo unique
-    return `${baseSlug}-${Date.now()}`;
+  if (excludeId) {
+    query += ' AND id != $2';
+    params.push(excludeId);
   }
+  
+  const result = await pool.query(query, params);
+  return result.rows.length > 0;
 }
 
-// Helper functions for JSON fallback
-const readJSONFile = (file) => {
-  try {
-    if (!fs.existsSync(file)) {
-      fs.writeFileSync(file, JSON.stringify([], null, 2));
-      return [];
-    }
-    const data = fs.readFileSync(file, 'utf-8');
-    return JSON.parse(data);
-  } catch (error) {
-    console.error(`Error reading ${file}:`, error);
-    return [];
-  }
-};
-
-const writeJSONFile = (file, data) => {
-  try {
-    fs.writeFileSync(file, JSON.stringify(data, null, 2));
-    return true;
-  } catch (error) {
-    console.error(`Error writing ${file}:`, error);
-    return false;
-  }
-};
-
-// Check if PostgreSQL is available
-let usePostgres = true;
-
-// Helper: Convert PostgreSQL row to frontend format (support both snake_case and camelCase)
+// Helper: Convert PostgreSQL row to frontend format
 function formatTemplateResponse(row) {
   if (!row) return null;
   return {
     ...row,
-    // Add camelCase aliases for frontend compatibility
     templateQuestions: row.template_questions || row.templateQuestions || [],
     subjectQuestions: row.subject_questions || row.subjectQuestions || [],
     isActive: row.is_active !== undefined ? row.is_active : row.isActive,
     createdAt: row.created_at || row.createdAt,
     updatedAt: row.updated_at || row.updatedAt,
+    type: row.type || 'other',
+    selectionQuestion: row.selection_question || row.selectionQuestion || null,
+    minSelections: row.min_selections || row.minSelections || 1,
   };
 }
 
 // Get all templates
 export async function getAllTemplates(req, res) {
-  if (!usePostgres) {
-    // Fallback to JSON
-    const templates = readJSONFile(TEMPLATES_FILE);
-    return res.json(templates);
-  }
-
   try {
     const result = await pool.query(
       'SELECT * FROM question_templates ORDER BY created_at DESC'
     );
     res.json(result.rows.map(formatTemplateResponse));
   } catch (error) {
-    console.error('Error fetching templates from PostgreSQL, using JSON fallback:', error);
-    usePostgres = false;
-    const templates = readJSONFile(TEMPLATES_FILE);
-    res.json(templates);
+    console.error('Error fetching templates:', error);
+    res.status(500).json({ error: 'Lỗi khi tải danh sách bộ câu hỏi' });
   }
 }
 
 // Get template by ID
 export async function getTemplateById(req, res) {
   const { id } = req.params;
-  
-  if (!usePostgres) {
-    const templates = readJSONFile(TEMPLATES_FILE);
-    const template = templates.find(t => t.id === id);
-    if (!template) {
-      return res.status(404).json({ error: 'Không tìm thấy template' });
-    }
-    return res.json(formatTemplateResponse(template));
-  }
 
   try {
     const result = await pool.query(
@@ -166,95 +95,64 @@ export async function getTemplateById(req, res) {
     );
     
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Không tìm thấy template' });
+      return res.status(404).json({ error: 'Không tìm thấy bộ câu hỏi' });
     }
     
     res.json(formatTemplateResponse(result.rows[0]));
   } catch (error) {
-    console.error('Error fetching template, using JSON fallback:', error);
-    usePostgres = false;
-    const templates = readJSONFile(TEMPLATES_FILE);
-    const template = templates.find(t => t.id === id);
-    if (!template) {
-      return res.status(404).json({ error: 'Không tìm thấy template' });
-    }
-    res.json(formatTemplateResponse(template));
+    console.error('Error fetching template:', error);
+    res.status(500).json({ error: 'Lỗi khi tải bộ câu hỏi' });
   }
 }
 
 // Get template by slug (for public evaluation link)
+// Also supports finding by ID as fallback
 export async function getTemplateBySlug(req, res) {
   const { slug } = req.params;
-  
-  if (!usePostgres) {
-    const templates = readJSONFile(TEMPLATES_FILE);
-    const template = templates.find(t => t.slug === slug);
-    if (!template) {
-      return res.status(404).json({ error: 'Không tìm thấy template' });
-    }
-    return res.json(formatTemplateResponse(template));
-  }
 
   try {
-    const result = await pool.query(
+    // First try to find by slug
+    let result = await pool.query(
       'SELECT * FROM question_templates WHERE slug = $1',
       [slug]
     );
     
+    // If not found by slug, try to find by ID
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Không tìm thấy template' });
+      result = await pool.query(
+        'SELECT * FROM question_templates WHERE id = $1',
+        [slug]
+      );
+    }
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Không tìm thấy bộ câu hỏi' });
     }
     
     res.json(formatTemplateResponse(result.rows[0]));
   } catch (error) {
     console.error('Error fetching template by slug:', error);
-    usePostgres = false;
-    const templates = readJSONFile(TEMPLATES_FILE);
-    const template = templates.find(t => t.slug === slug);
-    if (!template) {
-      return res.status(404).json({ error: 'Không tìm thấy template' });
-    }
-    res.json(formatTemplateResponse(template));
+    res.status(500).json({ error: 'Lỗi khi tải bộ câu hỏi' });
   }
 }
 
 // Create new template
 export async function createTemplate(req, res) {
-  const { id, name, description, roles, questions, subjects, subjectQuestions, templateQuestions, isActive } = req.body;
+  const { id, name, description, roles, questions, subjects, subjectQuestions, templateQuestions, isActive, type, selectionQuestion, minSelections } = req.body;
   const templateId = id || `template-${Date.now()}`;
-  const slug = await generateUniqueSlug(name);
-  const now = new Date().toISOString();
+  const slug = generateSlug(name);
   
-  const newTemplate = {
-    id: templateId,
-    name,
-    slug,
-    description: description || '',
-    roles: roles || [],
-    questions: questions || [],
-    subjects: subjects || [],
-    subject_questions: subjectQuestions || [],
-    templateQuestions: templateQuestions || [],
-    isActive: isActive !== undefined ? isActive : false,
-    created_at: now,
-    updated_at: now,
-  };
-  
-  if (!usePostgres) {
-    const templates = readJSONFile(TEMPLATES_FILE);
-    templates.push(newTemplate);
-    if (writeJSONFile(TEMPLATES_FILE, templates)) {
-      return res.status(201).json(newTemplate);
-    } else {
-      return res.status(500).json({ error: 'Lỗi khi lưu template' });
-    }
-  }
-
   try {
+    // Check for duplicate slug
+    const isDuplicate = await checkSlugDuplicate(slug);
+    if (isDuplicate) {
+      return res.status(400).json({ error: 'Tên bộ câu hỏi đã tồn tại. Vui lòng chọn tên khác.' });
+    }
+
     const result = await pool.query(
       `INSERT INTO question_templates 
-       (id, name, slug, description, roles, questions, subjects, subject_questions, template_questions, is_active, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+       (id, name, slug, description, roles, questions, subjects, subject_questions, template_questions, is_active, type, selection_question, min_selections, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())
        RETURNING *`,
       [
         templateId,
@@ -266,66 +164,39 @@ export async function createTemplate(req, res) {
         JSON.stringify(subjects || []),
         JSON.stringify(subjectQuestions || []),
         JSON.stringify(templateQuestions || []),
-        isActive || false
+        isActive || false,
+        type || 'other',
+        selectionQuestion || null,
+        minSelections || 1
       ]
     );
     
     res.status(201).json(formatTemplateResponse(result.rows[0]));
   } catch (error) {
-    console.error('Error creating template, using JSON fallback:', error);
-    usePostgres = false;
-    const templates = readJSONFile(TEMPLATES_FILE);
-    templates.push(newTemplate);
-    if (writeJSONFile(TEMPLATES_FILE, templates)) {
-      res.status(201).json(formatTemplateResponse(newTemplate));
-    } else {
-      res.status(500).json({ error: 'Lỗi khi lưu template' });
-    }
+    console.error('Error creating template:', error);
+    res.status(500).json({ error: 'Lỗi khi tạo bộ câu hỏi' });
   }
 }
 
 // Update template
 export async function updateTemplate(req, res) {
   const { id } = req.params;
-  const { name, description, roles, questions, subjects, subjectQuestions, templateQuestions, isActive } = req.body;
-  const slug = await generateUniqueSlug(name, id);
-  const now = new Date().toISOString();
+  const { name, description, roles, questions, subjects, subjectQuestions, templateQuestions, isActive, type, selectionQuestion, minSelections } = req.body;
+  const slug = generateSlug(name);
   
-  if (!usePostgres) {
-    const templates = readJSONFile(TEMPLATES_FILE);
-    const index = templates.findIndex(t => t.id === id);
-    
-    if (index === -1) {
-      return res.status(404).json({ error: 'Không tìm thấy template' });
-    }
-    
-    templates[index] = {
-      ...templates[index],
-      name,
-      slug,
-      description: description || '',
-      roles: roles || [],
-      questions: questions || [],
-      subjects: subjects || [],
-      subject_questions: subjectQuestions || [],
-      templateQuestions: templateQuestions || [],
-      isActive: isActive !== undefined ? isActive : templates[index].isActive,
-      updated_at: now,
-    };
-    
-    if (writeJSONFile(TEMPLATES_FILE, templates)) {
-      return res.json(templates[index]);
-    } else {
-      return res.status(500).json({ error: 'Lỗi khi cập nhật template' });
-    }
-  }
-
   try {
+    // Check for duplicate slug (excluding current template)
+    const isDuplicate = await checkSlugDuplicate(slug, id);
+    if (isDuplicate) {
+      return res.status(400).json({ error: 'Tên bộ câu hỏi đã tồn tại. Vui lòng chọn tên khác.' });
+    }
+
     const result = await pool.query(
       `UPDATE question_templates 
        SET name = $1, slug = $2, description = $3, roles = $4, questions = $5, 
-           subjects = $6, subject_questions = $7, template_questions = $8, is_active = $9, updated_at = NOW()
-       WHERE id = $10
+           subjects = $6, subject_questions = $7, template_questions = $8, is_active = $9, type = $10, 
+           selection_question = $11, min_selections = $12, updated_at = NOW()
+       WHERE id = $13
        RETURNING *`,
       [
         name,
@@ -337,64 +208,27 @@ export async function updateTemplate(req, res) {
         JSON.stringify(subjectQuestions || []),
         JSON.stringify(templateQuestions || []),
         isActive !== undefined ? isActive : false,
+        type || 'other',
+        selectionQuestion || null,
+        minSelections || 1,
         id
       ]
     );
     
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Không tìm thấy template' });
+      return res.status(404).json({ error: 'Không tìm thấy bộ câu hỏi' });
     }
     
     res.json(formatTemplateResponse(result.rows[0]));
   } catch (error) {
-    console.error('Error updating template, using JSON fallback:', error);
-    usePostgres = false;
-    const templates = readJSONFile(TEMPLATES_FILE);
-    const index = templates.findIndex(t => t.id === id);
-    
-    if (index === -1) {
-      return res.status(404).json({ error: 'Không tìm thấy template' });
-    }
-    
-    templates[index] = {
-      ...templates[index],
-      name,
-      slug,
-      description: description || '',
-      roles: roles || [],
-      questions: questions || [],
-      subjects: subjects || [],
-      subject_questions: subjectQuestions || [],
-      templateQuestions: templateQuestions || [],
-      updated_at: now,
-    };
-    
-    if (writeJSONFile(TEMPLATES_FILE, templates)) {
-      res.json(formatTemplateResponse(templates[index]));
-    } else {
-      res.status(500).json({ error: 'Lỗi khi cập nhật template' });
-    }
+    console.error('Error updating template:', error);
+    res.status(500).json({ error: 'Lỗi khi cập nhật bộ câu hỏi' });
   }
 }
 
 // Delete template
 export async function deleteTemplate(req, res) {
   const { id } = req.params;
-  
-  if (!usePostgres) {
-    const templates = readJSONFile(TEMPLATES_FILE);
-    const filtered = templates.filter(t => t.id !== id);
-    
-    if (filtered.length === templates.length) {
-      return res.status(404).json({ error: 'Không tìm thấy template' });
-    }
-    
-    if (writeJSONFile(TEMPLATES_FILE, filtered)) {
-      return res.json({ message: 'Đã xóa template thành công' });
-    } else {
-      return res.status(500).json({ error: 'Lỗi khi xóa template' });
-    }
-  }
 
   try {
     const result = await pool.query(
@@ -403,24 +237,87 @@ export async function deleteTemplate(req, res) {
     );
     
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Không tìm thấy template' });
+      return res.status(404).json({ error: 'Không tìm thấy bộ câu hỏi' });
     }
     
-    res.json({ message: 'Đã xóa template thành công' });
+    res.json({ message: 'Đã xóa bộ câu hỏi thành công' });
   } catch (error) {
-    console.error('Error deleting template, using JSON fallback:', error);
-    usePostgres = false;
-    const templates = readJSONFile(TEMPLATES_FILE);
-    const filtered = templates.filter(t => t.id !== id);
+    console.error('Error deleting template:', error);
+    res.status(500).json({ error: 'Lỗi khi xóa bộ câu hỏi' });
+  }
+}
+
+// Increment view count when someone visits the evaluation link
+export async function incrementViewCount(req, res) {
+  const { slug } = req.params;
+
+  try {
+    const result = await pool.query(
+      `UPDATE question_templates 
+       SET view_count = COALESCE(view_count, 0) + 1
+       WHERE slug = $1
+       RETURNING id, view_count`,
+      [slug]
+    );
     
-    if (filtered.length === templates.length) {
-      return res.status(404).json({ error: 'Không tìm thấy template' });
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Không tìm thấy bộ câu hỏi' });
     }
     
-    if (writeJSONFile(TEMPLATES_FILE, filtered)) {
-      res.json({ message: 'Đã xóa template thành công' });
-    } else {
-      res.status(500).json({ error: 'Lỗi khi xóa template' });
+    res.json({ viewCount: result.rows[0].view_count });
+  } catch (error) {
+    console.error('Error incrementing view count:', error);
+    res.status(500).json({ error: 'Lỗi khi cập nhật lượt xem' });
+  }
+}
+
+// Get all templates with evaluation count statistics
+export async function getTemplatesWithStats(req, res) {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        qt.*,
+        COALESCE(er.evaluation_count, 0) as evaluation_count
+      FROM question_templates qt
+      LEFT JOIN (
+        SELECT template_id, COUNT(*) as evaluation_count
+        FROM evaluation_responses
+        GROUP BY template_id
+      ) er ON qt.id = er.template_id
+      ORDER BY qt.created_at DESC
+    `);
+    
+    res.json(result.rows.map(row => ({
+      ...formatTemplateResponse(row),
+      viewCount: row.view_count || 0,
+      evaluationCount: parseInt(row.evaluation_count) || 0,
+    })));
+  } catch (error) {
+    console.error('Error fetching templates with stats:', error);
+    res.status(500).json({ error: 'Lỗi khi tải danh sách bộ câu hỏi' });
+  }
+}
+
+// Reset view count for a template
+export async function resetViewCount(req, res) {
+  const { id } = req.params;
+
+  try {
+    const result = await pool.query(
+      `UPDATE question_templates 
+       SET view_count = 0
+       WHERE id = $1
+       RETURNING id, view_count`,
+      [id]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Không tìm thấy bộ câu hỏi' });
     }
+    
+    res.json({ message: 'Đã reset lượt xem', viewCount: 0 });
+  } catch (error) {
+    console.error('Error resetting view count:', error);
+    res.status(500).json({ error: 'Lỗi khi reset lượt xem' });
   }
 }

@@ -7,6 +7,9 @@ import Login from './pages/Login';
 import QuestionTemplates from './pages/admin/QuestionTemplates';
 import TemplateTypeSelection from './pages/admin/TemplateTypeSelection';
 import CreateTemplate from './pages/admin/CreateTemplate';
+import CreateTemplateEmployee from './pages/admin/CreateTemplateEmployee';
+import CreateTemplateGeneral from './pages/admin/CreateTemplateGeneral';
+import EditTemplateWrapper from './pages/admin/EditTemplateWrapper';
 import EvaluationHistory from './pages/admin/EvaluationHistory';
 import EvaluationForm from './pages/evaluator/EvaluationForm';
 
@@ -28,7 +31,9 @@ function App() {
             <Route path="templates" element={<QuestionTemplates />} />
             <Route path="templates/new" element={<TemplateTypeSelection />} />
             <Route path="templates/new/bld" element={<CreateTemplate />} />
-            <Route path="templates/:id/edit" element={<CreateTemplate />} />
+            <Route path="templates/new/nhan-vien" element={<CreateTemplateEmployee />} />
+            <Route path="templates/new/chung" element={<CreateTemplateGeneral />} />
+            <Route path="templates/:id/edit" element={<EditTemplateWrapper />} />
             <Route path="templates/:templateId/history" element={<EvaluationHistory />} />
           </Route>
 

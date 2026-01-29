@@ -136,5 +136,42 @@
     "isActive": false,
     "created_at": "2026-01-22T04:58:10.971Z",
     "updated_at": "2026-01-22T04:58:10.971Z"
+  },
+  {
+    "id": "template-chung-test",
+    "name": "Khảo sát văn hóa công ty 2026",
+    "slug": "khao-sat-van-hoa-2026",
+    "description": "Khảo sát ẩn danh về văn hóa và hoạt động nội bộ",
+    "type": "chung",
+    "isActive": true,
+    "roles": [],
+    "subjects": [],
+    "templateQuestions": [],
+    "subjectQuestions": [],
+    "questions": [
+      {
+        "id": "q-1",
+        "content": "Bạn đánh giá như thế nào về môi trường làm việc tại công ty?",
+        "type": "rating-5",
+        "description": "",
+        "required": true
+      },
+      {
+        "id": "q-2",
+        "content": "Bạn có hài lòng với các hoạt động nội bộ của công ty không?",
+        "type": "yes-no",
+        "description": "",
+        "required": true
+      },
+      {
+        "id": "q-3",
+        "content": "Bạn có góp ý gì để cải thiện văn hóa công ty?",
+        "type": "text",
+        "description": "Vui lòng chia sẻ ý kiến của bạn",
+        "required": false
+      }
+    ],
+    "createdAt": "2026-01-29T17:57:44.822Z",
+    "updatedAt": "2026-01-29T17:57:44.822Z"
   }
 ]

@@ -3,7 +3,7 @@ import React, { ReactNode } from 'react';
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'outline' | 'danger' | 'ghost';
   size?: 'sm' | 'md' | 'lg';
-  children: ReactNode;
+  children?: ReactNode;
   icon?: ReactNode;
 }
 

@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS question_templates (
     questions JSONB DEFAULT '[]',
     subjects JSONB DEFAULT '[]',
     subject_questions JSONB DEFAULT '[]',
+    template_questions JSONB DEFAULT '[]',
     is_active BOOLEAN DEFAULT false,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

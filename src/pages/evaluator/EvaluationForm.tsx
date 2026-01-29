@@ -3,8 +3,10 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent } from '../../components/ui/Card';
+import { ConfirmModal } from '../../components/ui/ConfirmModal';
 import { Textarea } from '../../components/ui/Input';
 import { StarRating } from '../../components/ui/StarRating';
+import { SuccessModal } from '../../components/ui/SuccessModal';
 import { evaluationsAPI, templatesAPI } from '../../services/api';
 import { Question, QuestionTemplate } from '../../types';
 
@@ -27,7 +29,6 @@ const EvaluationForm: React.FC = () => {
   const [, setLastSaved] = useState<Date | null>(null);
   const [loading, setLoading] = useState(true);
   const [showDepartmentModal, setShowDepartmentModal] = useState(true);
-  const [showPersonSelector, setShowPersonSelector] = useState(false);
   const [department, setDepartment] = useState('');
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
 
@@ -48,6 +49,13 @@ const EvaluationForm: React.FC = () => {
       }
 
       setTemplate(templateData);
+      
+      // Increment view count
+      try {
+        await templatesAPI.incrementView(slug || '');
+      } catch (e) {
+        // Silently fail - view count is not critical
+      }
     } catch (error) {
       console.error('Error loading template:', error);
       alert('Không tìm thấy bộ câu hỏi');
@@ -57,8 +65,91 @@ const EvaluationForm: React.FC = () => {
     }
   };
 
+  // Kiểm tra xem đây có phải template nhân viên không
+  const isEmployeeTemplate = template?.type === 'nhan-vien';
+  
+  // Kiểm tra xem đây có phải template đánh giá chung không (không chọn người)
+  const isGeneralTemplate = template?.type === 'chung';
+  
+  // State cho việc chọn phòng ban và team riêng biệt (cho template nhân viên)
+  const [selectedDeptName, setSelectedDeptName] = useState('');
+  const [selectedTeamName, setSelectedTeamName] = useState('');
+  
+  // Lấy danh sách phòng ban duy nhất từ subjects (parse từ "Phòng X - Team Y")
+  const getAvailableDeptNames = (): string[] => {
+    if (!template?.subjects) return [];
+    const depts = new Set<string>();
+    template.subjects.forEach(s => {
+      if (s.department) {
+        // Parse "Phòng X - Team Y" -> "Phòng X"
+        const parts = s.department.split(' - ');
+        depts.add(parts[0]);
+      }
+    });
+    return Array.from(depts).sort();
+  };
+  
+  // Lấy danh sách team trong phòng ban đã chọn
+  const getAvailableTeams = (): string[] => {
+    if (!template?.subjects || !selectedDeptName) return [];
+    const teams = new Set<string>();
+    template.subjects.forEach(s => {
+      if (s.department) {
+        const parts = s.department.split(' - ');
+        // Nếu phòng ban khớp và có team
+        if (parts[0] === selectedDeptName && parts.length > 1) {
+          teams.add(parts.slice(1).join(' - ')); // Phần còn lại là team name
+        }
+      }
+    });
+    return Array.from(teams).sort();
+  };
+  
+  const availableDeptNames = getAvailableDeptNames();
+  const availableTeams = getAvailableTeams();
+  
+  // Tính selectedTargetDepartment từ phòng ban và team đã chọn
+  const computedTargetDepartment = selectedDeptName 
+    ? (selectedTeamName ? `${selectedDeptName} - ${selectedTeamName}` : selectedDeptName)
+    : '';
+
   // Get current subject and their questions
   const allSubjects = template?.subjects || [];
+  
+  // Lọc subjects theo phòng ban và team đã chọn (chỉ cho template nhân viên)
+  const filteredSubjectsByDept = isEmployeeTemplate && selectedDeptName
+    ? allSubjects.filter(s => {
+        if (!s.department) return false;
+        const parts = s.department.split(' - ');
+        const deptName = parts[0];
+        const teamName = parts.length > 1 ? parts.slice(1).join(' - ') : '';
+        
+        // Phải khớp phòng ban
+        if (deptName !== selectedDeptName) return false;
+        
+        // Nếu có chọn team thì phải khớp team
+        if (selectedTeamName && teamName !== selectedTeamName) return false;
+        
+        return true;
+      })
+    : allSubjects;
+  
+  // Debug log
+  try {
+    console.log('Debug EvaluationForm:', {
+      isEmployeeTemplate,
+      selectedDeptName,
+      selectedTeamName,
+      availableDeptNames,
+      availableTeams,
+      filteredSubjectsByDeptCount: filteredSubjectsByDept.length,
+      showDepartmentModal,
+      allSubjectsWithDept: allSubjects.map(s => ({ name: s.name, department: s.department }))
+    });
+  } catch (e) {
+    console.error('Debug log error:', e);
+  }
+    
   const subjects = selectedSubjects.length > 0
     ? allSubjects.filter(s => selectedSubjects.includes(s.id))
     : allSubjects;
@@ -114,14 +205,22 @@ const EvaluationForm: React.FC = () => {
   }, [answers]);
 
   const handleAnswerChange = (questionId: string, value: any) => {
-    setAnswers({
-      ...answers,
-      [`${currentSubject.id}-${questionId}`]: value,
-    });
+    // Với template chung hoặc câu hỏi common, sử dụng questionId trực tiếp
+    if (isGeneralTemplate || questionId.startsWith('common-')) {
+      setAnswers({
+        ...answers,
+        [questionId]: value,
+      });
+    } else {
+      setAnswers({
+        ...answers,
+        [`${currentSubject?.id}-${questionId}`]: value,
+      });
+    }
   };
 
   const getAnswer = (questionId: string) => {
-    return answers[`${currentSubject.id}-${questionId}`] || '';
+    return answers[`${currentSubject?.id}-${questionId}`] || '';
   };
 
   const handleNextSubject = () => {
@@ -140,28 +239,40 @@ const EvaluationForm: React.FC = () => {
   };
   */
 
-  const handleSubmit = async () => {
-    if (window.confirm('Bạn có chắc chắn muốn gửi đánh giá? Sau khi gửi bạn không thể chỉnh sửa.')) {
-      try {
-        // Prepare subject details
-        const subjectDetails = subjects.map(s => ({ id: s.id, name: s.name }));
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
-        // Submit to API
-        await evaluationsAPI.submit({
-          templateId: template?.id,
-          department,
-          selectedSubjects,
-          answers,
-          subjectDetails,
-        });
+  const handleSubmit = () => {
+    setShowConfirmModal(true);
+  };
 
-        alert('Đánh giá của bạn đã được gửi thành công! 🎉');
-        navigate('/');
-      } catch (error) {
-        console.error('Error submitting evaluation:', error);
-        alert('Có lỗi khi gửi đánh giá. Vui lòng thử lại.');
-      }
+  const handleConfirmSubmit = async () => {
+    try {
+      // Prepare subject details
+      const subjectDetails = subjects.map(s => ({ id: s.id, name: s.name }));
+
+      // Submit to API
+      await evaluationsAPI.submit({
+        templateId: template?.id,
+        department,
+        selectedSubjects,
+        answers,
+        subjectDetails,
+      });
+
+      setShowConfirmModal(false);
+      setShowSuccessModal(true);
+    } catch (error) {
+      console.error('Error submitting evaluation:', error);
+      setShowConfirmModal(false);
+      alert('Có lỗi khi gửi đánh giá. Vui lòng thử lại.');
     }
+  };
+
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  
+  const handleSuccessClose = () => {
+    setShowSuccessModal(false);
+    navigate('/');
   };
 
   const isSubjectCompleted = (index: number) => {
@@ -184,6 +295,8 @@ const EvaluationForm: React.FC = () => {
 
   // Check if all subject evaluations are completed (not including common questions)
   const isAllSubjectsCompleted = () => {
+    // Với đánh giá chung, không cần chọn người
+    if (isGeneralTemplate) return true;
     if (selectedSubjects.length < 2) return false;
     return subjects.every((_, index) => isSubjectCompleted(index));
   };
@@ -195,6 +308,10 @@ const EvaluationForm: React.FC = () => {
 
   // Check if all subjects are completed
   const isAllCompleted = () => {
+    // Với đánh giá chung, chỉ cần hoàn thành common questions
+    if (isGeneralTemplate) {
+      return isCommonQuestionsCompleted;
+    }
     return isAllSubjectsCompleted() && isCommonQuestionsCompleted;
   };
 
@@ -214,18 +331,32 @@ const EvaluationForm: React.FC = () => {
     );
   }
 
-  // Person selector modal - Now skip this and go directly to main form
-  if (showPersonSelector) {
-    setShowPersonSelector(false);
-  }
+  // Person selector modal - Skip this mode
 
-  if (!template || allSubjects.length === 0) {
+  // Template chung không cần subjects (đánh giá ẩn danh)
+  if (!template || (!isGeneralTemplate && allSubjects.length === 0)) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <Card className="max-w-md">
           <CardContent className="p-8 text-center">
             <p className="text-gray-600 mb-4">Không tìm thấy bộ câu hỏi</p>
             <Button onClick={() => navigate('/')}>Quay lại</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Nếu là template nhân viên nhưng sau khi lọc không còn ai
+  if (isEmployeeTemplate && selectedDeptName && !showDepartmentModal && filteredSubjectsByDept.length === 0) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Card className="max-w-md">
+          <CardContent className="p-8 text-center">
+            <p className="text-gray-600 mb-4">
+              Không có nhân viên nào trong phòng ban/team đã chọn.
+            </p>
+            <Button onClick={() => setShowDepartmentModal(true)}>Chọn lại phòng ban</Button>
           </CardContent>
         </Card>
       </div>
@@ -266,36 +397,93 @@ const EvaluationForm: React.FC = () => {
               </div>
             )}
 
+            {/* Phòng ban của người đánh giá - Cho template BLD dùng DEPARTMENTS, cho template nhân viên dùng availableDeptNames */}
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 mb-3">
                 Phòng ban của bạn <span className="text-red-500">*</span>
               </label>
-              <select
-                value={department}
-                onChange={(e) => setDepartment(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
-              >
-                <option value="">-- Chọn phòng ban --</option>
-                {DEPARTMENTS.map((dept) => (
-                  <option key={dept} value={dept}>
-                    {dept}
-                  </option>
-                ))}
-              </select>
+              {isEmployeeTemplate && availableDeptNames.length > 0 ? (
+                <select
+                  value={selectedDeptName}
+                  onChange={(e) => {
+                    setSelectedDeptName(e.target.value);
+                    setDepartment(e.target.value); // Sync với department
+                    setSelectedTeamName(''); // Reset team khi đổi phòng ban
+                    setSelectedSubjects([]); // Reset selection
+                  }}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                >
+                  <option value="">-- Chọn phòng ban --</option>
+                  {availableDeptNames.map((dept) => (
+                    <option key={dept} value={dept}>
+                      {dept}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <select
+                  value={department}
+                  onChange={(e) => setDepartment(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                >
+                  <option value="">-- Chọn phòng ban --</option>
+                  {DEPARTMENTS.map((dept) => (
+                    <option key={dept} value={dept}>
+                      {dept}
+                    </option>
+                  ))}
+                </select>
+              )}
               <p className="text-xs text-gray-500 mt-2">
                 Thông tin này chỉ dùng để thống kê, không ảnh hưởng tới tính ẩn danh
               </p>
             </div>
 
+            {/* Cho template nhân viên: Chọn team (chỉ hiển thị nếu có team) */}
+            {isEmployeeTemplate && selectedDeptName && availableTeams.length > 0 && (
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Team của bạn <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={selectedTeamName}
+                  onChange={(e) => {
+                    setSelectedTeamName(e.target.value);
+                    setSelectedSubjects([]); // Reset selection
+                  }}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                >
+                  <option value="">-- Chọn team --</option>
+                  {availableTeams.map((team) => (
+                    <option key={team} value={team}>
+                      {team}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <Button
               onClick={() => {
-                if (!department) {
-                  alert('Vui lòng chọn phòng ban');
+                if (isEmployeeTemplate && availableDeptNames.length > 0) {
+                  if (!selectedDeptName) {
+                    alert('Vui lòng chọn phòng ban của bạn');
+                    return;
+                  }
+                  if (availableTeams.length > 0 && !selectedTeamName) {
+                    alert('Vui lòng chọn team của bạn');
+                    return;
+                  }
+                } else if (!department) {
+                  alert('Vui lòng chọn phòng ban của bạn');
                   return;
                 }
                 setShowDepartmentModal(false);
               }}
-              disabled={!department}
+              disabled={(isEmployeeTemplate && availableDeptNames.length > 0) 
+                ? (!selectedDeptName || (availableTeams.length > 0 && !selectedTeamName))
+                : !department
+              }
               className="w-full py-3"
             >
               Tiếp tục
@@ -339,15 +527,193 @@ const EvaluationForm: React.FC = () => {
       </header>
 
       <div className="max-w-5xl mx-auto px-4 py-6">
-        {/* Section 1: Person Selector - Same as CreateTemplate */}
+        {/* Cho đánh giá chung: Hiển thị trực tiếp các câu hỏi */}
+        {isGeneralTemplate ? (
+          <Card>
+            <CardContent className="p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-6">Câu hỏi khảo sát</h2>
+              <div className="space-y-6">
+                {(template.questions || []).map((question, index) => (
+                  <div key={question.id} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <p className="font-medium text-gray-900 mb-2">
+                      {index + 1}. {question.content}
+                    </p>
+                    {question.description && (
+                      <p className="text-sm text-gray-600 mb-3">{question.description}</p>
+                    )}
+                    
+                    {/* Rating Question (5 stars) */}
+                    {(question.type === 'rating' || question.type === 'rating-5') && (
+                      <StarRating
+                        value={answers[`common-${question.id}`] || 0}
+                        onChange={(value) => handleAnswerChange(`common-${question.id}`, value)}
+                      />
+                    )}
+                    
+                    {/* Text Question */}
+                    {question.type === 'text' && (
+                      <Textarea
+                        value={answers[`common-${question.id}`] || ''}
+                        onChange={(e) => handleAnswerChange(`common-${question.id}`, e.target.value)}
+                        placeholder="Nhập câu trả lời của bạn..."
+                        rows={3}
+                      />
+                    )}
+                    
+                    {/* Yes/No Question */}
+                    {(question.type === 'yesno' || question.type === 'yes-no') && (
+                      <div className="flex gap-4">
+                        <label className={`flex items-center gap-2 px-4 py-2 border-2 rounded-lg cursor-pointer transition-all ${
+                          answers[`common-${question.id}`] === 'yes' ? 'border-green-500 bg-green-50' : 'border-gray-200'
+                        }`}>
+                          <input
+                            type="radio"
+                            name={`q-${question.id}`}
+                            checked={answers[`common-${question.id}`] === 'yes'}
+                            onChange={() => handleAnswerChange(`common-${question.id}`, 'yes')}
+                            className="hidden"
+                          />
+                          <span className="text-green-600">✓</span> Có
+                        </label>
+                        <label className={`flex items-center gap-2 px-4 py-2 border-2 rounded-lg cursor-pointer transition-all ${
+                          answers[`common-${question.id}`] === 'no' ? 'border-red-500 bg-red-50' : 'border-gray-200'
+                        }`}>
+                          <input
+                            type="radio"
+                            name={`q-${question.id}`}
+                            checked={answers[`common-${question.id}`] === 'no'}
+                            onChange={() => handleAnswerChange(`common-${question.id}`, 'no')}
+                            className="hidden"
+                          />
+                          <span className="text-red-600">✗</span> Không
+                        </label>
+                      </div>
+                    )}
+                    
+                    {/* Scale Question (1-10) */}
+                    {(question.type === 'scale' || question.type === 'rating-10') && (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
+                          <button
+                            key={num}
+                            onClick={() => handleAnswerChange(`common-${question.id}`, num)}
+                            className={`w-10 h-10 rounded-lg font-medium transition-all ${
+                              answers[`common-${question.id}`] === num
+                                ? 'bg-purple-600 text-white'
+                                : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                            }`}
+                          >
+                            {num}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Single Choice Question */}
+                    {question.type === 'single-choice' && question.options && (
+                      <div className="space-y-2">
+                        {question.options.map((option, optIndex) => (
+                          <label 
+                            key={optIndex}
+                            className={`flex items-center gap-3 p-3 border-2 rounded-lg cursor-pointer transition-all ${
+                              answers[`common-${question.id}`] === option 
+                                ? 'border-purple-500 bg-purple-50' 
+                                : 'border-gray-200 hover:border-gray-300'
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name={`q-${question.id}`}
+                              checked={answers[`common-${question.id}`] === option}
+                              onChange={() => handleAnswerChange(`common-${question.id}`, option)}
+                              className="hidden"
+                            />
+                            <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                              answers[`common-${question.id}`] === option 
+                                ? 'border-purple-500 bg-purple-500' 
+                                : 'border-gray-300'
+                            }`}>
+                              {answers[`common-${question.id}`] === option && (
+                                <div className="w-2 h-2 bg-white rounded-full" />
+                              )}
+                            </div>
+                            <span>{option}</span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Multiple Choice Question */}
+                    {question.type === 'multiple-choice' && question.options && (
+                      <div className="space-y-2">
+                        {question.options.map((option, optIndex) => {
+                          const currentAnswers = answers[`common-${question.id}`] || [];
+                          const isSelected = Array.isArray(currentAnswers) && currentAnswers.includes(option);
+                          return (
+                            <label 
+                              key={optIndex}
+                              className={`flex items-center gap-3 p-3 border-2 rounded-lg cursor-pointer transition-all ${
+                                isSelected 
+                                  ? 'border-purple-500 bg-purple-50' 
+                                  : 'border-gray-200 hover:border-gray-300'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => {
+                                  const current = Array.isArray(currentAnswers) ? currentAnswers : [];
+                                  if (isSelected) {
+                                    handleAnswerChange(`common-${question.id}`, current.filter(a => a !== option));
+                                  } else {
+                                    handleAnswerChange(`common-${question.id}`, [...current, option]);
+                                  }
+                                }}
+                                className="hidden"
+                              />
+                              <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
+                                isSelected 
+                                  ? 'border-purple-500 bg-purple-500' 
+                                  : 'border-gray-300'
+                              }`}>
+                                {isSelected && (
+                                  <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                  </svg>
+                                )}
+                              </div>
+                              <span>{option}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <>
+        {/* Section 1: Person Selector */}
         <Card className="mb-6">
           <CardContent className="p-6">
             <p className="text-gray-700 mb-1">
-              <span className="font-medium">1. Anh/Chị đã có đủ trải nghiệm làm việc hoặc tương tác để chia sẻ góc nhìn với những lãnh đạo nào dưới đây?</span>
+              <span className="font-medium">1. {template.selectionQuestion || 'Anh/Chị đã có đủ trải nghiệm làm việc hoặc tương tác để chia sẻ góc nhìn với những lãnh đạo nào dưới đây?'}</span>
             </p>
             <p className="text-orange-600 font-medium mb-4">
-              👉 Vui lòng chọn ít nhất 02 người
+              👉 Vui lòng chọn ít nhất {template.minSelections || 2} người
             </p>
+
+            {/* Cho template nhân viên: Hiển thị phòng ban/team đã chọn */}
+            {isEmployeeTemplate && selectedDeptName && (
+              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-blue-800 font-medium">
+                  📍 Phòng ban: {selectedDeptName}
+                  {selectedTeamName && <span> - Team: {selectedTeamName}</span>}
+                </p>
+              </div>
+            )}
 
             {/* Selection count badge */}
             {selectedSubjects.length > 0 && (
@@ -358,24 +724,34 @@ const EvaluationForm: React.FC = () => {
               </div>
             )}
 
-            {/* Two column grid - Same as CreateTemplate */}
+            {/* Danh sách người để chọn - lọc theo phòng ban nếu là template nhân viên */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {allSubjects.map((subject) => (
+              {filteredSubjectsByDept.map((subject) => (
                 <label
                   key={subject.id}
-                  className={`flex items-center px-4 py-3 border-2 rounded-lg cursor-pointer transition-all ${
+                  className={`flex items-center justify-between px-4 py-3 border-2 rounded-lg cursor-pointer transition-all ${
                     selectedSubjects.includes(subject.id)
                       ? 'border-purple-600 bg-purple-50'
                       : 'border-gray-200 hover:border-gray-300'
                   }`}
                 >
-                  <input
-                    type="checkbox"
-                    checked={selectedSubjects.includes(subject.id)}
-                    onChange={() => toggleSubject(subject.id)}
-                    className="w-4 h-4 text-purple-600 rounded focus:ring-purple-500"
-                  />
-                  <span className="ml-3 font-medium text-gray-900">{subject.name}</span>
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={selectedSubjects.includes(subject.id)}
+                      onChange={() => toggleSubject(subject.id)}
+                      className="w-4 h-4 text-purple-600 rounded focus:ring-purple-500"
+                    />
+                    <div className="ml-3">
+                      <span className="font-medium text-gray-900">{subject.name}</span>
+                      {subject.position && (
+                        <span className="block text-xs text-gray-500">{subject.position}</span>
+                      )}
+                    </div>
+                  </div>
+                  {isEmployeeTemplate && subject.department && !computedTargetDepartment && (
+                    <span className="text-xs text-gray-400 ml-2">{subject.department}</span>
+                  )}
                 </label>
               ))}
             </div>
@@ -383,7 +759,7 @@ const EvaluationForm: React.FC = () => {
         </Card>
 
         {/* Section 2: Questions for selected people - Using Tabs like CreateTemplate */}
-        {selectedSubjects.length >= 2 && (
+        {selectedSubjects.length >= (template.minSelections || 2) && (
           <Card>
             <CardContent className="p-6">
               <h2 className="text-xl font-bold text-gray-900 mb-2">
@@ -576,7 +952,7 @@ const EvaluationForm: React.FC = () => {
                         {question.type === 'ranking' && (
                           <div className="space-y-3">
                             <p className="text-sm text-gray-500 mb-2">
-                              Xếp hạng các lãnh đạo theo thứ tự ưu tiên (1 = cao nhất)
+                              Xếp hạng theo thứ tự ưu tiên (1 = cao nhất)
                             </p>
                             {(() => {
                               const rankingAnswer = getAnswer(question.id) || {};
@@ -612,7 +988,7 @@ const EvaluationForm: React.FC = () => {
                                       }}
                                       className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                                     >
-                                      <option value="">-- Chọn lãnh đạo --</option>
+                                      <option value="">-- Chọn người --</option>
                                       {availableOptions.map((subject) => (
                                         <option key={subject.id} value={subject.id}>
                                           {subject.name}
@@ -644,10 +1020,10 @@ const EvaluationForm: React.FC = () => {
                       ) : (
                         <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-center">
                           <p className="text-green-800 font-semibold text-lg mb-2">
-                            ✓ Đã hoàn thành đánh giá cho tất cả lãnh đạo!
+                            🎉 Tuyệt vời! Bạn đã hoàn thành đánh giá cho tất cả {subjects.length} người!
                           </p>
                           <p className="text-green-700">
-                            Vui lòng tiếp tục trả lời câu hỏi chung bên dưới.
+                            👇 Vui lòng tiếp tục trả lời một vài câu hỏi chung bên dưới để hoàn tất khảo sát.
                           </p>
                         </div>
                       )
@@ -664,14 +1040,14 @@ const EvaluationForm: React.FC = () => {
         )}
 
         {/* Section 3: Common Questions - Asked once after all subjects are evaluated */}
-        {selectedSubjects.length >= 2 && isAllSubjectsCompleted() && commonQuestions.length > 0 && (
+        {selectedSubjects.length >= (template.minSelections || 2) && isAllSubjectsCompleted() && commonQuestions.length > 0 && (
           <Card className="mt-6">
             <CardContent className="p-6">
               <h2 className="text-xl font-bold text-gray-900 mb-2">
                 📋 Câu hỏi chung
               </h2>
               <p className="text-gray-600 mb-4">
-                Câu hỏi tổng hợp sau khi đánh giá tất cả lãnh đạo
+                Một vài câu hỏi tổng hợp cuối cùng trước khi hoàn tất khảo sát
               </p>
 
               <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
@@ -819,7 +1195,7 @@ const EvaluationForm: React.FC = () => {
                     {question.type === 'ranking' && (
                       <div className="space-y-3">
                         <p className="text-sm text-gray-500 mb-2">
-                          Xếp hạng các lãnh đạo theo thứ tự ưu tiên (1 = cao nhất)
+                          Xếp hạng theo thứ tự ưu tiên (1 = cao nhất)
                         </p>
                         {(() => {
                           const rankingAnswer = answers[`common-${question.id}`] || {};
@@ -855,7 +1231,7 @@ const EvaluationForm: React.FC = () => {
                                   }}
                                   className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                                 >
-                                  <option value="">-- Chọn lãnh đạo --</option>
+                                  <option value="">-- Chọn người --</option>
                                   {availableOptions.map((subject) => (
                                     <option key={subject.id} value={subject.id}>
                                       {subject.name}
@@ -886,7 +1262,29 @@ const EvaluationForm: React.FC = () => {
             </CardContent>
           </Card>
         )}
+          </>
+        )}
       </div>
+      
+      {/* Confirm Modal */}
+      <ConfirmModal
+        isOpen={showConfirmModal}
+        onClose={() => setShowConfirmModal(false)}
+        onConfirm={handleConfirmSubmit}
+        title="Xác nhận gửi đánh giá"
+        message="Bạn có chắc chắn muốn gửi đánh giá?"
+        confirmText="Gửi đánh giá"
+        cancelText="Quay lại"
+      />
+      
+      {/* Success Modal */}
+      <SuccessModal
+        isOpen={showSuccessModal}
+        onClose={handleSuccessClose}
+        title="Gửi thành công! 🎉"
+        message="Đánh giá của bạn đã được ghi nhận!"
+        subMessage="Cảm ơn bạn đã dành thời gian tham gia khảo sát. Phản hồi của bạn rất quan trọng với chúng tôi."
+      />
     </div>
   );
 };
