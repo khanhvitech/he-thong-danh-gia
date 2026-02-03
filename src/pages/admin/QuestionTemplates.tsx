@@ -112,10 +112,9 @@ const QuestionTemplates: React.FC = () => {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-          <button
-            type="button"
-            onClick={() => navigate('/admin/templates/new')}
-            style={{ 
+          <Link
+            to="/admin/templates/new"
+            style={{
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -126,12 +125,13 @@ const QuestionTemplates: React.FC = () => {
               borderRadius: '8px',
               fontWeight: 500,
               cursor: 'pointer',
-              border: 'none'
+              border: 'none',
+              textDecoration: 'none'
             }}
           >
             <Plus className="w-4 h-4" />
             Tạo bộ câu hỏi mới
-          </button>
+          </Link>
         </div>
       </div>
 
