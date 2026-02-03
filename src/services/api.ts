@@ -26,8 +26,16 @@ export const templatesAPI = {
   getById: (id: string) => api.get(`/templates/${id}`),
   getBySlug: (slug: string) => api.get(`/templates/slug/${slug}`),
   incrementView: (slug: string) => api.post(`/templates/slug/${slug}/view`),
-  create: (template: any) => api.post('/templates', template),
-  update: (id: string, template: any) => api.put(`/templates/${id}`, template),
+  create: (template: any) => {
+    console.log('[API] create template - sending:', template);
+    console.log('[API] create template - createdBy:', template.createdBy);
+    return api.post('/templates', template);
+  },
+  update: (id: string, template: any) => {
+    console.log('[API] update template - sending:', template);
+    console.log('[API] update template - lastModifiedBy:', template.lastModifiedBy);
+    return api.put(`/templates/${id}`, template);
+  },
   delete: (id: string) => api.delete(`/templates/${id}`),
 };
 

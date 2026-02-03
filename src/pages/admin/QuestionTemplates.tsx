@@ -1,21 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Plus, Edit, Trash2, Eye, Copy, Power, BarChart3, Users, MousePointer } from 'lucide-react';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { QuestionTemplate } from '../../types';
 import { templatesAPI } from '../../services/api';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface TemplateWithStats extends QuestionTemplate {
   viewCount: number;
   evaluationCount: number;
+  createdBy?: string;
+  lastModifiedBy?: string;
 }
 
 const QuestionTemplates: React.FC = () => {
   const [templates, setTemplates] = useState<TemplateWithStats[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
+  const { hasPermission } = useAuth();
+  const navigate = useNavigate();
+  
+  const canViewHistory = hasPermission('view_history');
+  const canDeleteTemplate = hasPermission('delete_templates');
 
   useEffect(() => {
     loadTemplates();
@@ -32,6 +40,8 @@ const QuestionTemplates: React.FC = () => {
         updatedAt: t.updated_at ?? t.updatedAt,
         viewCount: t.viewCount ?? t.view_count ?? 0,
         evaluationCount: t.evaluationCount ?? t.evaluation_count ?? 0,
+        createdBy: t.created_by ?? t.createdBy ?? null,
+        lastModifiedBy: t.last_modified_by ?? t.lastModifiedBy ?? null,
       }));
       setTemplates(templates);
     } catch (error) {
@@ -88,25 +98,45 @@ const QuestionTemplates: React.FC = () => {
         <p className="text-gray-600">Tạo và quản lý các template câu hỏi để sử dụng cho đánh giá</p>
       </div>
 
-      {/* Actions Bar */}
-      <div className="flex items-center justify-between mb-6 gap-4">
-        <div className="flex-1 max-w-md">
-          <Input
-            type="text"
-            placeholder="Tìm kiếm bộ câu hỏi..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full"
-          />
-        </div>
-        <Link to="/admin/templates/new">
-          <Button icon={<Plus className="w-4 h-4" />}>
+      {/* Actions Bar - với position relative và z-index cao để không bị đè */}
+      <div 
+        className="mb-6"
+        style={{ position: 'relative', zIndex: 100 }}
+      >
+        <div className="flex items-center justify-between gap-4">
+          <div style={{ width: '400px' }}>
+            <Input
+              type="text"
+              placeholder="Tìm kiếm bộ câu hỏi..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => navigate('/admin/templates/new')}
+            style={{ 
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              padding: '8px 16px',
+              backgroundColor: '#7c3aed',
+              color: 'white',
+              borderRadius: '8px',
+              fontWeight: 500,
+              cursor: 'pointer',
+              border: 'none'
+            }}
+          >
+            <Plus className="w-4 h-4" />
             Tạo bộ câu hỏi mới
-          </Button>
-        </Link>
+          </button>
+        </div>
       </div>
 
-      {/* Templates Table */}
+      {/* Templates Table - với z-index thấp hơn */}
+      <div style={{ position: 'relative', zIndex: 1 }}>
       {filteredTemplates.length === 0 ? (
         <Card>
           <CardContent className="text-center py-12">
@@ -135,7 +165,10 @@ const QuestionTemplates: React.FC = () => {
                     Trạng thái
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Cập nhật
+                    Người tạo
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    Chỉnh sửa lần cuối
                   </th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
                     Thao tác
@@ -203,9 +236,24 @@ const QuestionTemplates: React.FC = () => {
                         </button>
                       </td>
                       
-                      {/* Cập nhật */}
-                      <td className="px-4 py-4 text-sm text-gray-500">
-                        {new Date(template.updatedAt).toLocaleDateString('vi-VN')}
+                      {/* Người tạo */}
+                      <td className="px-4 py-4">
+                        <div className="text-sm">
+                          <span className="text-gray-900">{template.createdBy || '—'}</span>
+                          <div className="text-xs text-gray-400">
+                            {new Date(template.createdAt).toLocaleDateString('vi-VN')}
+                          </div>
+                        </div>
+                      </td>
+                      
+                      {/* Chỉnh sửa lần cuối */}
+                      <td className="px-4 py-4">
+                        <div className="text-sm">
+                          <span className="text-gray-900">{template.lastModifiedBy || template.createdBy || '—'}</span>
+                          <div className="text-xs text-gray-400">
+                            {new Date(template.updatedAt).toLocaleDateString('vi-VN')}
+                          </div>
+                        </div>
                       </td>
                       
                       {/* Thao tác */}
@@ -219,10 +267,12 @@ const QuestionTemplates: React.FC = () => {
                             <Button variant="ghost" size="sm" icon={<Edit className="w-4 h-4" />} title="Sửa">
                             </Button>
                           </Link>
-                          <Link to={`/admin/templates/${template.id}/history`}>
-                            <Button variant="ghost" size="sm" icon={<BarChart3 className="w-4 h-4 text-purple-600" />} title="Lịch sử">
-                            </Button>
-                          </Link>
+                          {canViewHistory && (
+                            <Link to={`/admin/templates/${template.id}/history`}>
+                              <Button variant="ghost" size="sm" icon={<BarChart3 className="w-4 h-4 text-purple-600" />} title="Lịch sử">
+                              </Button>
+                            </Link>
+                          )}
                           {template.isActive && (
                             <Button
                               variant="ghost"
@@ -238,14 +288,16 @@ const QuestionTemplates: React.FC = () => {
                             >
                             </Button>
                           )}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            icon={<Trash2 className="w-4 h-4 text-red-600" />}
-                            title="Xóa"
-                            onClick={() => handleDelete(template.id)}
-                          >
-                          </Button>
+                          {canDeleteTemplate && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              icon={<Trash2 className="w-4 h-4 text-red-600" />}
+                              title="Xóa"
+                              onClick={() => handleDelete(template.id)}
+                            >
+                            </Button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -256,6 +308,7 @@ const QuestionTemplates: React.FC = () => {
           </div>
         </Card>
       )}
+      </div>
     </div>
   );
 };

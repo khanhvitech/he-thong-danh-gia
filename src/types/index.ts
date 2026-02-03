@@ -9,7 +9,8 @@ export type QuestionType =
   | 'yesno'
   | 'rating'
   | 'scale'
-  | 'ranking';
+  | 'ranking'
+  | 'person-select'; // Chọn người từ danh sách
 
 export interface Question {
   id: string;
@@ -20,6 +21,11 @@ export interface Question {
   minChars?: number;
   options?: string[];
   allowOther?: boolean; // Cho phép điền "Khác"
+  // Các trường cho loại person-select
+  personList?: string[]; // Danh sách người để chọn (dùng khi personSource='manual')
+  minPersons?: number; // Số người tối thiểu phải chọn
+  maxPersons?: number; // Số người tối đa được chọn (không giới hạn nếu không set)
+  personSource?: 'manual' | 'subjects' | 'departments' | 'all-employees'; // Nguồn danh sách người
 }
 
 export interface SubjectInTemplate {
@@ -51,6 +57,8 @@ export interface QuestionTemplate {
   isActive?: boolean; // Trạng thái bật/tắt đánh giá
   createdAt: string;
   updatedAt: string;
+  createdBy?: string; // Người tạo bộ câu hỏi
+  lastModifiedBy?: string; // Người chỉnh sửa lần cuối
 }
 
 export interface Subject {

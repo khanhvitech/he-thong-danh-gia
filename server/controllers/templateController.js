@@ -65,6 +65,8 @@ function formatTemplateResponse(row) {
     isActive: row.is_active !== undefined ? row.is_active : row.isActive,
     createdAt: row.created_at || row.createdAt,
     updatedAt: row.updated_at || row.updatedAt,
+    createdBy: row.created_by || row.createdBy || null,
+    lastModifiedBy: row.last_modified_by || row.lastModifiedBy || null,
     type: row.type || 'other',
     selectionQuestion: row.selection_question || row.selectionQuestion || null,
     minSelections: row.min_selections || row.minSelections || 1,
@@ -138,7 +140,12 @@ export async function getTemplateBySlug(req, res) {
 
 // Create new template
 export async function createTemplate(req, res) {
-  const { id, name, description, roles, questions, subjects, subjectQuestions, templateQuestions, isActive, type, selectionQuestion, minSelections } = req.body;
+  const { id, name, description, roles, questions, subjects, subjectQuestions, templateQuestions, isActive, type, selectionQuestion, minSelections, createdBy } = req.body;
+  
+  // Debug log
+  console.log('[createTemplate] req.body.createdBy:', createdBy);
+  console.log('[createTemplate] Full req.body keys:', Object.keys(req.body));
+  
   const templateId = id || `template-${Date.now()}`;
   const slug = generateSlug(name);
   
@@ -151,8 +158,8 @@ export async function createTemplate(req, res) {
 
     const result = await pool.query(
       `INSERT INTO question_templates 
-       (id, name, slug, description, roles, questions, subjects, subject_questions, template_questions, is_active, type, selection_question, min_selections, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())
+       (id, name, slug, description, roles, questions, subjects, subject_questions, template_questions, is_active, type, selection_question, min_selections, created_by, last_modified_by, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $14, NOW(), NOW())
        RETURNING *`,
       [
         templateId,
@@ -167,7 +174,8 @@ export async function createTemplate(req, res) {
         isActive || false,
         type || 'other',
         selectionQuestion || null,
-        minSelections || 1
+        minSelections || 1,
+        createdBy || null
       ]
     );
     
@@ -181,8 +189,11 @@ export async function createTemplate(req, res) {
 // Update template
 export async function updateTemplate(req, res) {
   const { id } = req.params;
-  const { name, description, roles, questions, subjects, subjectQuestions, templateQuestions, isActive, type, selectionQuestion, minSelections } = req.body;
+  const { name, description, roles, questions, subjects, subjectQuestions, templateQuestions, isActive, type, selectionQuestion, minSelections, lastModifiedBy } = req.body;
   const slug = generateSlug(name);
+  
+  // Debug log
+  console.log('updateTemplate - lastModifiedBy received:', lastModifiedBy);
   
   try {
     // Check for duplicate slug (excluding current template)
@@ -195,8 +206,8 @@ export async function updateTemplate(req, res) {
       `UPDATE question_templates 
        SET name = $1, slug = $2, description = $3, roles = $4, questions = $5, 
            subjects = $6, subject_questions = $7, template_questions = $8, is_active = $9, type = $10, 
-           selection_question = $11, min_selections = $12, updated_at = NOW()
-       WHERE id = $13
+           selection_question = $11, min_selections = $12, last_modified_by = $13, updated_at = NOW()
+       WHERE id = $14
        RETURNING *`,
       [
         name,
@@ -211,6 +222,7 @@ export async function updateTemplate(req, res) {
         type || 'other',
         selectionQuestion || null,
         minSelections || 1,
+        lastModifiedBy || null,
         id
       ]
     );

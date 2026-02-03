@@ -6,13 +6,28 @@ import { useAuth } from '../../contexts/AuthContext';
 const AdminLayout: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
 
   const navigation = [
     { name: 'Bộ câu hỏi', href: '/admin/templates', icon: FileText },
   ];
 
   const isActive = (path: string) => location.pathname.startsWith(path);
+  
+  // Hiển thị role badge dựa trên role của user
+  const getRoleBadge = () => {
+    if (!user) return { text: 'Guest', className: 'bg-gray-100 text-gray-800' };
+    switch (user.role) {
+      case 'admin':
+        return { text: 'Admin', className: 'bg-primary-100 text-primary-800' };
+      case 'template_editor':
+        return { text: 'Biên tập', className: 'bg-green-100 text-green-800' };
+      default:
+        return { text: 'Guest', className: 'bg-gray-100 text-gray-800' };
+    }
+  };
+  
+  const roleBadge = getRoleBadge();
 
   const handleLogout = () => {
     if (confirm('Bạn có chắc muốn đăng xuất?')) {
@@ -24,16 +39,21 @@ const AdminLayout: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-40">
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-30">
         <div className="mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
               <h1 className="text-xl font-bold text-gray-900">
                 📋 Hệ Thống Đánh Giá
               </h1>
-              <span className="ml-3 px-2 py-1 text-xs font-medium bg-primary-100 text-primary-800 rounded">
-                Admin
+              <span className={`ml-3 px-2 py-1 text-xs font-medium rounded ${roleBadge.className}`}>
+                {roleBadge.text}
               </span>
+              {user && (
+                <span className="ml-2 text-sm text-gray-600">
+                  ({user.displayName})
+                </span>
+              )}
             </div>
             <button
               onClick={handleLogout}
@@ -48,7 +68,7 @@ const AdminLayout: React.FC = () => {
 
       <div className="flex">
         {/* Sidebar */}
-        <aside className="w-64 bg-white border-r border-gray-200 min-h-[calc(100vh-4rem)] sticky top-16">
+        <aside className="w-64 bg-white border-r border-gray-200 min-h-[calc(100vh-4rem)]">
           <nav className="p-4 space-y-2">
             {navigation.map((item) => {
               const Icon = item.icon;

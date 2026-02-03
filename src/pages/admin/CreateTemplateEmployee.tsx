@@ -9,6 +9,7 @@ import { Input, Select, Textarea } from '../../components/ui/Input';
 import { Modal, ModalFooter } from '../../components/ui/Modal';
 import { Question, QuestionTemplate, SubjectInTemplate } from '../../types';
 import { templatesAPI } from '../../services/api';
+import { useAuth } from '../../contexts/AuthContext';
 
 // Danh sách phòng ban có sẵn
 const AVAILABLE_DEPARTMENTS = [
@@ -33,6 +34,7 @@ const CreateTemplateEmployee: React.FC = () => {
   const navigate = useNavigate();
   const { id: templateId } = useParams();
   const isEditMode = !!templateId;
+  const { user } = useAuth();
   
   const [loading, setLoading] = useState(false);
   const [name, setName] = useState('');
@@ -335,11 +337,17 @@ const CreateTemplateEmployee: React.FC = () => {
 
     try {
       if (isEditMode && templateId) {
-        const response = await templatesAPI.update(templateId, template);
+        const response = await templatesAPI.update(templateId, {
+          ...template,
+          lastModifiedBy: user?.displayName || user?.username || 'Unknown'
+        });
         console.log('Template updated:', response.data);
         alert('Đã cập nhật bộ câu hỏi thành công!');
       } else {
-        const response = await templatesAPI.create(template);
+        const response = await templatesAPI.create({
+          ...template,
+          createdBy: user?.displayName || user?.username || 'Unknown'
+        });
         console.log('Template saved:', response.data);
         alert('Đã lưu bộ câu hỏi thành công!');
       }
@@ -658,6 +666,7 @@ const CreateTemplateEmployee: React.FC = () => {
                         { value: 'single-choice', label: 'Chọn một' },
                         { value: 'multiple-choice', label: 'Chọn nhiều' },
                         { value: 'yes-no', label: 'Có/Không' },
+                        { value: 'person-select', label: 'Chọn người từ danh sách' },
                       ]}
                     />
 
@@ -729,6 +738,121 @@ const CreateTemplateEmployee: React.FC = () => {
                         />
                         Cho phép điền "Khác"
                       </label>
+                    </div>
+                  )}
+
+                  {/* Person Select Configuration */}
+                  {question.type === 'person-select' && (
+                    <div className="space-y-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                      {/* Chọn nguồn danh sách */}
+                      <div className="mb-3">
+                        <label className="text-sm font-medium text-gray-700 block mb-2">
+                          Nguồn danh sách người
+                        </label>
+                        <div className="flex flex-col gap-2">
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="radio"
+                              name={`personSource-${question.id}`}
+                              checked={(question as any).personSource !== 'departments' && (question as any).personSource !== 'all-employees'}
+                              onChange={() => updateCommonQuestion(question.id, 'personSource' as any, 'manual')}
+                              className="text-purple-600"
+                            />
+                            <span className="text-sm">Nhập thủ công</span>
+                          </label>
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="radio"
+                              name={`personSource-${question.id}`}
+                              checked={(question as any).personSource === 'departments'}
+                              onChange={() => updateCommonQuestion(question.id, 'personSource' as any, 'departments')}
+                              className="text-purple-600"
+                            />
+                            <span className="text-sm">🏢 Lấy từ phòng ban người đánh giá chọn (động)</span>
+                          </label>
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="radio"
+                              name={`personSource-${question.id}`}
+                              checked={(question as any).personSource === 'all-employees'}
+                              onChange={() => {
+                                updateCommonQuestion(question.id, 'personSource' as any, 'all-employees');
+                                const subjectNames = allSubjects.map(s => s.name);
+                                updateCommonQuestion(question.id, 'personList' as any, subjectNames);
+                              }}
+                              className="text-purple-600"
+                            />
+                            <span className="text-sm">📋 Lấy tất cả nhân viên ({allSubjects.length} người)</span>
+                          </label>
+                        </div>
+                      </div>
+                      
+                      {/* Hiển thị theo nguồn đã chọn */}
+                      {(question as any).personSource === 'departments' ? (
+                        <div className="bg-green-50 p-3 rounded-lg border border-green-200">
+                          <p className="text-sm text-green-800 font-medium mb-2">
+                            🏢 Danh sách sẽ tự động lấy từ phòng ban mà người đánh giá đã chọn
+                          </p>
+                          <p className="text-xs text-green-600">
+                            Ví dụ: Nếu người đánh giá chọn "Phòng Marketing", họ sẽ thấy danh sách nhân viên Phòng Marketing để chọn.
+                          </p>
+                        </div>
+                      ) : (question as any).personSource === 'all-employees' ? (
+                        <div className="bg-green-50 p-3 rounded-lg border border-green-200">
+                          <p className="text-sm text-green-800 font-medium mb-2">
+                            📋 Danh sách gồm tất cả {allSubjects.length} nhân viên từ {departments.length} phòng ban:
+                          </p>
+                          <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
+                            {allSubjects.slice(0, 20).map((subject) => (
+                              <span key={subject.id} className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs">
+                                {subject.name}
+                              </span>
+                            ))}
+                            {allSubjects.length > 20 && (
+                              <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs">
+                                ...và {allSubjects.length - 20} người khác
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <label className="text-sm font-medium text-gray-700">
+                            Danh sách người (mỗi người một dòng)
+                          </label>
+                          <textarea
+                            value={((question as any).personList || []).join('\n')}
+                            onChange={(e) => {
+                              const personList = e.target.value.split('\n').filter((p: string) => p.trim());
+                              updateCommonQuestion(question.id, 'personList' as any, personList);
+                            }}
+                            placeholder="Nguyễn Văn A&#10;Trần Thị B&#10;Lê Văn C"
+                            rows={5}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                          />
+                        </>
+                      )}
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                        <Input
+                          type="number"
+                          label="Số người tối thiểu phải chọn"
+                          value={(question as any).minPersons || 1}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                            updateCommonQuestion(question.id, 'minPersons' as any, parseInt(e.target.value) || 1)
+                          }
+                          min={1}
+                        />
+                        <Input
+                          type="number"
+                          label="Số người tối đa được chọn (0 = không giới hạn)"
+                          value={(question as any).maxPersons || 0}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                            updateCommonQuestion(question.id, 'maxPersons' as any, parseInt(e.target.value) || 0)
+                          }
+                          min={0}
+                        />
+                      </div>
                     </div>
                   )}
                 </div>
@@ -810,6 +934,7 @@ const CreateTemplateEmployee: React.FC = () => {
                           { value: 'single-choice', label: 'Chọn một' },
                           { value: 'multiple-choice', label: 'Chọn nhiều' },
                           { value: 'yes-no', label: 'Có/Không' },
+                          { value: 'person-select', label: 'Chọn người từ danh sách' },
                         ]}
                       />
 
@@ -881,6 +1006,105 @@ const CreateTemplateEmployee: React.FC = () => {
                           />
                           Cho phép điền "Khác"
                         </label>
+                      </div>
+                    )}
+
+                    {/* Person Select Configuration for Template Questions */}
+                    {question.type === 'person-select' && (
+                      <div className="space-y-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                        {/* Chọn nguồn danh sách */}
+                        <div className="mb-3">
+                          <label className="text-sm font-medium text-gray-700 block mb-2">
+                            Nguồn danh sách người
+                          </label>
+                          <div className="flex flex-col gap-2">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="radio"
+                                name={`personSource-tpl-${question.id}`}
+                                checked={(question as any).personSource !== 'departments' && (question as any).personSource !== 'all-employees'}
+                                onChange={() => updateTemplateQuestion(question.id, 'personSource' as any, 'manual')}
+                                className="text-purple-600"
+                              />
+                              <span className="text-sm">Nhập thủ công</span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="radio"
+                                name={`personSource-tpl-${question.id}`}
+                                checked={(question as any).personSource === 'departments'}
+                                onChange={() => updateTemplateQuestion(question.id, 'personSource' as any, 'departments')}
+                                className="text-purple-600"
+                              />
+                              <span className="text-sm">🏢 Lấy từ phòng ban người đánh giá chọn</span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="radio"
+                                name={`personSource-tpl-${question.id}`}
+                                checked={(question as any).personSource === 'all-employees'}
+                                onChange={() => {
+                                  updateTemplateQuestion(question.id, 'personSource' as any, 'all-employees');
+                                  const subjectNames = allSubjects.map(s => s.name);
+                                  updateTemplateQuestion(question.id, 'personList' as any, subjectNames);
+                                }}
+                                className="text-purple-600"
+                              />
+                              <span className="text-sm">📋 Lấy tất cả nhân viên ({allSubjects.length} người)</span>
+                            </label>
+                          </div>
+                        </div>
+                        
+                        {(question as any).personSource === 'departments' ? (
+                          <div className="bg-green-50 p-3 rounded-lg border border-green-200">
+                            <p className="text-sm text-green-800 font-medium">
+                              🏢 Danh sách sẽ tự động lấy từ phòng ban mà người đánh giá đã chọn
+                            </p>
+                          </div>
+                        ) : (question as any).personSource === 'all-employees' ? (
+                          <div className="bg-green-50 p-3 rounded-lg border border-green-200">
+                            <p className="text-sm text-green-800 font-medium">
+                              📋 Danh sách gồm tất cả {allSubjects.length} nhân viên
+                            </p>
+                          </div>
+                        ) : (
+                          <>
+                            <label className="text-sm font-medium text-gray-700">
+                              Danh sách người (mỗi người một dòng)
+                            </label>
+                            <textarea
+                              value={((question as any).personList || []).join('\n')}
+                              onChange={(e) => {
+                                const personList = e.target.value.split('\n').filter((p: string) => p.trim());
+                                updateTemplateQuestion(question.id, 'personList' as any, personList);
+                              }}
+                              placeholder="Nguyễn Văn A&#10;Trần Thị B&#10;Lê Văn C"
+                              rows={5}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                            />
+                          </>
+                        )}
+                        
+                        <div className="grid grid-cols-2 gap-4">
+                          <Input
+                            type="number"
+                            label="Số người tối thiểu phải chọn"
+                            value={(question as any).minPersons || 1}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                              updateTemplateQuestion(question.id, 'minPersons' as any, parseInt(e.target.value) || 1)
+                            }
+                            min={1}
+                          />
+                          <Input
+                            type="number"
+                            label="Số người tối đa được chọn (0 = không giới hạn)"
+                            value={(question as any).maxPersons || 0}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                              updateTemplateQuestion(question.id, 'maxPersons' as any, parseInt(e.target.value) || 0)
+                            }
+                            min={0}
+                          />
+                        </div>
                       </div>
                     )}
                   </div>

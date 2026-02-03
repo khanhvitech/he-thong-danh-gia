@@ -22,7 +22,7 @@ function App() {
           <Route path="/login" element={<Login />} />
 
           {/* Admin Routes - Protected */}
-          <Route path="/admin" element={
+          <Route path="admin" element={
             <ProtectedRoute>
               <AdminLayout />
             </ProtectedRoute>
@@ -34,7 +34,11 @@ function App() {
             <Route path="templates/new/nhan-vien" element={<CreateTemplateEmployee />} />
             <Route path="templates/new/chung" element={<CreateTemplateGeneral />} />
             <Route path="templates/:id/edit" element={<EditTemplateWrapper />} />
-            <Route path="templates/:templateId/history" element={<EvaluationHistory />} />
+            <Route path="templates/:templateId/history" element={
+              <ProtectedRoute requiredPermission="view_history">
+                <EvaluationHistory />
+              </ProtectedRoute>
+            } />
           </Route>
 
           {/* Evaluator Routes - Public (cho người đánh giá) */}

@@ -9,11 +9,13 @@ import { Input, Select } from '../../components/ui/Input';
 import { Modal, ModalFooter } from '../../components/ui/Modal';
 import { Question, QuestionTemplate, SubjectInTemplate } from '../../types';
 import { templatesAPI } from '../../services/api';
+import { useAuth } from '../../contexts/AuthContext';
 
 const CreateTemplate: React.FC = () => {
   const navigate = useNavigate();
   const { id: templateId } = useParams();
   const isEditMode = !!templateId;
+  const { user } = useAuth();
   
   const [loading, setLoading] = useState(false);
   const [name, setName] = useState('');
@@ -301,12 +303,22 @@ const CreateTemplate: React.FC = () => {
     try {
       if (isEditMode && templateId) {
         // Update existing template
-        const response = await templatesAPI.update(templateId, template);
+        const modifiedBy = user?.displayName || user?.username || 'Unknown';
+        console.log('[CreateTemplate] UPDATE - user:', user, 'lastModifiedBy:', modifiedBy);
+        const response = await templatesAPI.update(templateId, {
+          ...template,
+          lastModifiedBy: modifiedBy
+        });
         console.log('Template updated:', response.data);
         alert('Đã cập nhật bộ câu hỏi thành công!');
       } else {
         // Create new template
-        const response = await templatesAPI.create(template);
+        const createdByName = user?.displayName || user?.username || 'Unknown';
+        console.log('[CreateTemplate] CREATE - user:', user, 'createdBy:', createdByName);
+        const response = await templatesAPI.create({
+          ...template,
+          createdBy: createdByName
+        });
         console.log('Template saved:', response.data);
         alert('Đã lưu bộ câu hỏi thành công!');
       }
@@ -461,6 +473,7 @@ const CreateTemplate: React.FC = () => {
                             { value: 'multiple-choice', label: 'Chọn nhiều' },
                             { value: 'yes-no', label: 'Có/Không' },
                             { value: 'ranking', label: 'Sắp xếp thứ hạng' },
+                            { value: 'person-select', label: 'Chọn người từ danh sách' },
                           ]}
                         />
 
@@ -533,6 +546,106 @@ const CreateTemplate: React.FC = () => {
                             />
                             Cho phép điền "Khác"
                           </label>
+                        </div>
+                      )}
+
+                      {/* Person Select Configuration for Common Questions */}
+                      {question.type === 'person-select' && (
+                        <div className="space-y-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                          {/* Chọn nguồn danh sách */}
+                          <div className="mb-3">
+                            <label className="text-sm font-medium text-gray-700 block mb-2">
+                              Nguồn danh sách người
+                            </label>
+                            <div className="flex gap-4">
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                  type="radio"
+                                  name={`personSource-${question.id}`}
+                                  checked={(question as any).personSource !== 'subjects'}
+                                  onChange={() => updateCommonQuestion(question.id, 'personSource' as any, 'manual')}
+                                  className="text-purple-600"
+                                />
+                                <span className="text-sm">Nhập thủ công</span>
+                              </label>
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                  type="radio"
+                                  name={`personSource-${question.id}`}
+                                  checked={(question as any).personSource === 'subjects'}
+                                  onChange={() => {
+                                    updateCommonQuestion(question.id, 'personSource' as any, 'subjects');
+                                    // Tự động lấy danh sách từ subjects đã chọn
+                                    const subjectNames = selectedSubjects.map(id => 
+                                      allSubjects.find(s => s.id === id)?.name
+                                    ).filter(Boolean) as string[];
+                                    updateCommonQuestion(question.id, 'personList' as any, subjectNames);
+                                  }}
+                                  className="text-purple-600"
+                                />
+                                <span className="text-sm">Lấy từ danh sách BLĐ đã thêm ({selectedSubjects.length} người)</span>
+                              </label>
+                            </div>
+                          </div>
+                          
+                          {/* Hiển thị danh sách nếu chọn từ subjects */}
+                          {(question as any).personSource === 'subjects' ? (
+                            <div className="bg-green-50 p-3 rounded-lg border border-green-200">
+                              <p className="text-sm text-green-800 font-medium mb-2">
+                                📋 Danh sách sẽ lấy từ {selectedSubjects.length} BLĐ đã chọn:
+                              </p>
+                              <div className="flex flex-wrap gap-2">
+                                {selectedSubjects.map(id => {
+                                  const subject = allSubjects.find(s => s.id === id);
+                                  return subject ? (
+                                    <span key={id} className="px-2 py-1 bg-green-100 text-green-800 rounded text-sm">
+                                      {subject.name}
+                                    </span>
+                                  ) : null;
+                                })}
+                              </div>
+                              {selectedSubjects.length === 0 && (
+                                <p className="text-orange-600 text-sm">⚠️ Chưa chọn BLĐ nào. Vui lòng chọn ở phần bên dưới.</p>
+                              )}
+                            </div>
+                          ) : (
+                            <>
+                              <label className="text-sm font-medium text-gray-700">
+                                Danh sách người (mỗi người một dòng)
+                              </label>
+                              <textarea
+                                value={((question as any).personList || []).join('\n')}
+                                onChange={(e) => {
+                                  const personList = e.target.value.split('\n').filter((p: string) => p.trim());
+                                  updateCommonQuestion(question.id, 'personList' as any, personList);
+                                }}
+                                placeholder="Nguyễn Văn A&#10;Trần Thị B&#10;Lê Văn C"
+                                rows={5}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                              />
+                            </>
+                          )}
+                          
+                          <div className="grid grid-cols-2 gap-4">
+                            <Input
+                              type="number"
+                              label="Số người tối thiểu phải chọn"
+                              value={(question as any).minPersons || 1}
+                              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                updateCommonQuestion(question.id, 'minPersons' as any, parseInt(e.target.value) || 1)
+                              }
+                              min={1}
+                            />
+                            <Input
+                              type="number"
+                              label="Số người tối đa được chọn (0 = không giới hạn)"
+                              value={(question as any).maxPersons || 0}
+                              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                updateCommonQuestion(question.id, 'maxPersons' as any, parseInt(e.target.value) || 0)
+                              }
+                              min={0}
+                            />
+                          </div>
                         </div>
                       )}
                     </div>
@@ -698,6 +811,7 @@ const CreateTemplate: React.FC = () => {
                               { value: 'multiple-choice', label: 'Chọn nhiều' },
                               { value: 'yes-no', label: 'Có/Không' },
                               { value: 'ranking', label: 'Sắp xếp thứ hạng' },
+                              { value: 'person-select', label: 'Chọn người từ danh sách' },
                             ]}
                           />
 
@@ -770,6 +884,101 @@ const CreateTemplate: React.FC = () => {
                               />
                               Cho phép điền "Khác"
                             </label>
+                          </div>
+                        )}
+
+                        {/* Person Select Configuration for Template Questions */}
+                        {question.type === 'person-select' && (
+                          <div className="space-y-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                            {/* Chọn nguồn danh sách */}
+                            <div className="mb-3">
+                              <label className="text-sm font-medium text-gray-700 block mb-2">
+                                Nguồn danh sách người
+                              </label>
+                              <div className="flex gap-4">
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                  <input
+                                    type="radio"
+                                    name={`personSource-tpl-${question.id}`}
+                                    checked={(question as any).personSource !== 'subjects'}
+                                    onChange={() => updateTemplateQuestion(question.id, 'personSource' as any, 'manual')}
+                                    className="text-purple-600"
+                                  />
+                                  <span className="text-sm">Nhập thủ công</span>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                  <input
+                                    type="radio"
+                                    name={`personSource-tpl-${question.id}`}
+                                    checked={(question as any).personSource === 'subjects'}
+                                    onChange={() => {
+                                      updateTemplateQuestion(question.id, 'personSource' as any, 'subjects');
+                                      const subjectNames = selectedSubjects.map(id => 
+                                        allSubjects.find(s => s.id === id)?.name
+                                      ).filter(Boolean) as string[];
+                                      updateTemplateQuestion(question.id, 'personList' as any, subjectNames);
+                                    }}
+                                    className="text-purple-600"
+                                  />
+                                  <span className="text-sm">Lấy từ danh sách BLĐ ({selectedSubjects.length} người)</span>
+                                </label>
+                              </div>
+                            </div>
+                            
+                            {(question as any).personSource === 'subjects' ? (
+                              <div className="bg-green-50 p-3 rounded-lg border border-green-200">
+                                <p className="text-sm text-green-800 font-medium mb-2">
+                                  📋 Danh sách sẽ lấy từ {selectedSubjects.length} BLĐ đã chọn
+                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                  {selectedSubjects.map(id => {
+                                    const subject = allSubjects.find(s => s.id === id);
+                                    return subject ? (
+                                      <span key={id} className="px-2 py-1 bg-green-100 text-green-800 rounded text-sm">
+                                        {subject.name}
+                                      </span>
+                                    ) : null;
+                                  })}
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <label className="text-sm font-medium text-gray-700">
+                                  Danh sách người (mỗi người một dòng)
+                                </label>
+                                <textarea
+                                  value={((question as any).personList || []).join('\n')}
+                                  onChange={(e) => {
+                                    const personList = e.target.value.split('\n').filter((p: string) => p.trim());
+                                    updateTemplateQuestion(question.id, 'personList' as any, personList);
+                                  }}
+                                  placeholder="Nguyễn Văn A&#10;Trần Thị B&#10;Lê Văn C"
+                                  rows={5}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                                />
+                              </>
+                            )}
+                            
+                            <div className="grid grid-cols-2 gap-4">
+                              <Input
+                                type="number"
+                                label="Số người tối thiểu phải chọn"
+                                value={(question as any).minPersons || 1}
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                  updateTemplateQuestion(question.id, 'minPersons' as any, parseInt(e.target.value) || 1)
+                                }
+                                min={1}
+                              />
+                              <Input
+                                type="number"
+                                label="Số người tối đa được chọn (0 = không giới hạn)"
+                                value={(question as any).maxPersons || 0}
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                  updateTemplateQuestion(question.id, 'maxPersons' as any, parseInt(e.target.value) || 0)
+                                }
+                                min={0}
+                              />
+                            </div>
                           </div>
                         )}
 
@@ -919,6 +1128,7 @@ const CreateTemplate: React.FC = () => {
                                   { value: 'multiple-choice', label: 'Chọn nhiều' },
                                   { value: 'yes-no', label: 'Có/Không' },
                                   { value: 'ranking', label: 'Sắp xếp thứ hạng' },
+                                  { value: 'person-select', label: 'Chọn người từ danh sách' },
                                 ]}
                               />
 
@@ -1001,6 +1211,45 @@ const CreateTemplate: React.FC = () => {
                                   />
                                   Cho phép điền "Khác"
                                 </label>
+                              </div>
+                            )}
+
+                            {/* Person Select Configuration for Individual Questions */}
+                            {question.type === 'person-select' && (
+                              <div className="space-y-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                                <label className="text-sm font-medium text-gray-700">
+                                  Danh sách người (mỗi người một dòng)
+                                </label>
+                                <textarea
+                                  value={((question as any).personList || []).join('\n')}
+                                  onChange={(e) => {
+                                    const personList = e.target.value.split('\n').filter((p: string) => p.trim());
+                                    updateQuestionForSubject(activeSubjectTab, question.id, 'personList' as any, personList);
+                                  }}
+                                  placeholder="Nguyễn Văn A&#10;Trần Thị B&#10;Lê Văn C"
+                                  rows={5}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                                />
+                                <div className="grid grid-cols-2 gap-4">
+                                  <Input
+                                    type="number"
+                                    label="Số người tối thiểu phải chọn"
+                                    value={(question as any).minPersons || 1}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                      updateQuestionForSubject(activeSubjectTab, question.id, 'minPersons' as any, parseInt(e.target.value) || 1)
+                                    }
+                                    min={1}
+                                  />
+                                  <Input
+                                    type="number"
+                                    label="Số người tối đa được chọn (0 = không giới hạn)"
+                                    value={(question as any).maxPersons || 0}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                      updateQuestionForSubject(activeSubjectTab, question.id, 'maxPersons' as any, parseInt(e.target.value) || 0)
+                                    }
+                                    min={0}
+                                  />
+                                </div>
                               </div>
                             )}
                           </div>

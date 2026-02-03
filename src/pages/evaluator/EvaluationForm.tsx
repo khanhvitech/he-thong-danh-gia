@@ -185,6 +185,27 @@ const EvaluationForm: React.FC = () => {
     return template.questions || [];
   };
 
+  // Helper function để lấy danh sách người cho câu hỏi person-select
+  // Dựa trên personSource: 'manual', 'subjects', 'departments', 'all-employees'
+  const getPersonListForQuestion = (question: any): string[] => {
+    const personSource = question.personSource || 'manual';
+    
+    if (personSource === 'subjects') {
+      // Lấy từ danh sách BLĐ đã chọn (cho template BLD)
+      return allSubjects.map(s => s.name);
+    } else if (personSource === 'departments') {
+      // Lấy từ phòng ban mà người đánh giá đã chọn (cho template nhân viên)
+      // Dùng filteredSubjectsByDept đã được filter theo phòng ban
+      return filteredSubjectsByDept.map(s => s.name);
+    } else if (personSource === 'all-employees') {
+      // Lấy tất cả nhân viên
+      return allSubjects.map(s => s.name);
+    } else {
+      // Manual - dùng personList đã nhập
+      return question.personList || [];
+    }
+  };
+
   const currentQuestions = getCurrentSubjectQuestions();
   const totalQuestions = currentQuestions.length;
   const answeredQuestions = Object.keys(answers).filter(key =>
@@ -301,10 +322,27 @@ const EvaluationForm: React.FC = () => {
     return subjects.every((_, index) => isSubjectCompleted(index));
   };
 
-  // Check if common questions are completed
+  // Check if common questions are completed (including person-select validation)
   const commonQuestions = getCommonQuestions();
   const commonAnswersCount = Object.keys(answers).filter(key => key.startsWith('common-')).length;
-  const isCommonQuestionsCompleted = commonAnswersCount >= commonQuestions.length;
+  
+  // Check if all common questions meet their requirements
+  const isCommonQuestionsCompleted = (() => {
+    if (commonAnswersCount < commonQuestions.length) return false;
+    
+    // Check person-select questions have minimum persons selected
+    for (const question of commonQuestions) {
+      if (question.type === 'person-select') {
+        const answer = answers[`common-${question.id}`];
+        const selectedCount = Array.isArray(answer) ? answer.length : 0;
+        const minPersons = (question as any).minPersons || 1;
+        if (selectedCount < minPersons) {
+          return false;
+        }
+      }
+    }
+    return true;
+  })();
 
   // Check if all subjects are completed
   const isAllCompleted = () => {
@@ -688,6 +726,93 @@ const EvaluationForm: React.FC = () => {
                         })}
                       </div>
                     )}
+                    
+                    {/* Person Select Question */}
+                    {question.type === 'person-select' && (() => {
+                      const personList = getPersonListForQuestion(question);
+                      if (personList.length === 0) return null;
+                      return (
+                      <div className="space-y-3">
+                        <div className="text-sm text-gray-500 mb-2">
+                          {(question as any).minPersons > 1 && (
+                            <span className="text-orange-600">
+                              ⚠️ Vui lòng chọn ít nhất {(question as any).minPersons} người
+                            </span>
+                          )}
+                          {(question as any).maxPersons > 0 && (
+                            <span className="text-blue-600 ml-2">
+                              (Tối đa: {(question as any).maxPersons} người)
+                            </span>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {personList.map((person: string, pIndex: number) => {
+                            const currentAnswers = answers[`common-${question.id}`] || [];
+                            const isSelected = Array.isArray(currentAnswers) && currentAnswers.includes(person);
+                            const maxReached = (question as any).maxPersons > 0 && 
+                              Array.isArray(currentAnswers) && 
+                              currentAnswers.length >= (question as any).maxPersons && 
+                              !isSelected;
+                            return (
+                              <label 
+                                key={pIndex}
+                                className={`flex items-center gap-3 p-3 border-2 rounded-lg cursor-pointer transition-all ${
+                                  isSelected 
+                                    ? 'border-green-500 bg-green-50' 
+                                    : maxReached
+                                    ? 'border-gray-200 bg-gray-100 cursor-not-allowed opacity-50'
+                                    : 'border-gray-200 hover:border-gray-300'
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  disabled={maxReached}
+                                  onChange={() => {
+                                    const current = Array.isArray(currentAnswers) ? currentAnswers : [];
+                                    if (isSelected) {
+                                      handleAnswerChange(`common-${question.id}`, current.filter(a => a !== person));
+                                    } else if (!maxReached) {
+                                      handleAnswerChange(`common-${question.id}`, [...current, person]);
+                                    }
+                                  }}
+                                  className="hidden"
+                                />
+                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                                  isSelected 
+                                    ? 'border-green-500 bg-green-500' 
+                                    : 'border-gray-300'
+                                }`}>
+                                  {isSelected && (
+                                    <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                    </svg>
+                                  )}
+                                </div>
+                                <span className="flex items-center gap-2">
+                                  <span className="text-lg">👤</span>
+                                  {person}
+                                </span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                        {/* Hiển thị số người đã chọn */}
+                        <div className="text-sm text-gray-600 mt-2">
+                          Đã chọn: {Array.isArray(answers[`common-${question.id}`]) ? answers[`common-${question.id}`].length : 0} người
+                          {(question as any).minPersons > 1 && (
+                            <span className={`ml-2 ${
+                              (Array.isArray(answers[`common-${question.id}`]) ? answers[`common-${question.id}`].length : 0) >= (question as any).minPersons 
+                                ? 'text-green-600' 
+                                : 'text-red-600'
+                            }`}>
+                              ({(Array.isArray(answers[`common-${question.id}`]) ? answers[`common-${question.id}`].length : 0) >= (question as any).minPersons ? '✓ Đủ' : `Cần thêm ${(question as any).minPersons - (Array.isArray(answers[`common-${question.id}`]) ? answers[`common-${question.id}`].length : 0)} người`})
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      );
+                    })()}
                   </div>
                 ))}
               </div>
@@ -949,6 +1074,94 @@ const EvaluationForm: React.FC = () => {
                           </div>
                         )}
 
+                        {/* Person Select Question for Individual Evaluation */}
+                        {question.type === 'person-select' && (() => {
+                          const personList = getPersonListForQuestion(question);
+                          if (personList.length === 0) return null;
+                          return (
+                          <div className="space-y-3">
+                            <div className="text-sm text-gray-500 mb-2">
+                              {(question as any).minPersons > 1 && (
+                                <span className="text-orange-600">
+                                  ⚠️ Vui lòng chọn ít nhất {(question as any).minPersons} người
+                                </span>
+                              )}
+                              {(question as any).maxPersons > 0 && (
+                                <span className="text-blue-600 ml-2">
+                                  (Tối đa: {(question as any).maxPersons} người)
+                                </span>
+                              )}
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              {personList.map((person: string, pIndex: number) => {
+                                const currentAnswer = getAnswer(question.id) || [];
+                                const selectedPersons = Array.isArray(currentAnswer) ? currentAnswer : [];
+                                const isSelected = selectedPersons.includes(person);
+                                const maxReached = (question as any).maxPersons > 0 && 
+                                  selectedPersons.length >= (question as any).maxPersons && 
+                                  !isSelected;
+                                return (
+                                  <label 
+                                    key={pIndex}
+                                    className={`flex items-center gap-3 p-3 border-2 rounded-lg cursor-pointer transition-all ${
+                                      isSelected 
+                                        ? 'border-green-500 bg-green-50' 
+                                        : maxReached
+                                        ? 'border-gray-200 bg-gray-100 cursor-not-allowed opacity-50'
+                                        : 'border-gray-200 hover:border-gray-300'
+                                    }`}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={isSelected}
+                                      disabled={maxReached}
+                                      onChange={(e) => {
+                                        let newSelected = [...selectedPersons];
+                                        if (e.target.checked && !maxReached) {
+                                          newSelected.push(person);
+                                        } else {
+                                          newSelected = newSelected.filter((p: string) => p !== person);
+                                        }
+                                        handleAnswerChange(question.id, newSelected);
+                                      }}
+                                      className="hidden"
+                                    />
+                                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                                      isSelected 
+                                        ? 'border-green-500 bg-green-500' 
+                                        : 'border-gray-300'
+                                    }`}>
+                                      {isSelected && (
+                                        <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                        </svg>
+                                      )}
+                                    </div>
+                                    <span className="flex items-center gap-2">
+                                      <span className="text-lg">👤</span>
+                                      {person}
+                                    </span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                            {/* Hiển thị số người đã chọn */}
+                            <div className="text-sm text-gray-600 mt-2">
+                              Đã chọn: {Array.isArray(getAnswer(question.id)) ? (getAnswer(question.id) as string[]).length : 0} người
+                              {(question as any).minPersons > 1 && (
+                                <span className={`ml-2 ${
+                                  (Array.isArray(getAnswer(question.id)) ? (getAnswer(question.id) as string[]).length : 0) >= (question as any).minPersons 
+                                    ? 'text-green-600' 
+                                    : 'text-red-600'
+                                }`}>
+                                  ({(Array.isArray(getAnswer(question.id)) ? (getAnswer(question.id) as string[]).length : 0) >= (question as any).minPersons ? '✓ Đủ' : `Cần thêm ${(question as any).minPersons - (Array.isArray(getAnswer(question.id)) ? (getAnswer(question.id) as string[]).length : 0)} người`})
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          );
+                        })()}
+
                         {question.type === 'ranking' && (
                           <div className="space-y-3">
                             <p className="text-sm text-gray-500 mb-2">
@@ -1191,6 +1404,93 @@ const EvaluationForm: React.FC = () => {
                         )}
                       </div>
                     )}
+
+                    {/* Person Select Question in Common Questions Section 3 */}
+                    {question.type === 'person-select' && (() => {
+                      const personList = getPersonListForQuestion(question);
+                      if (!personList || personList.length === 0) return null;
+                      return (
+                      <div className="space-y-3">
+                        <div className="text-sm text-gray-500 mb-2">
+                          {(question as any).minPersons > 1 && (
+                            <span className="text-orange-600">
+                              ⚠️ Vui lòng chọn ít nhất {(question as any).minPersons} người
+                            </span>
+                          )}
+                          {(question as any).maxPersons > 0 && (
+                            <span className="text-blue-600 ml-2">
+                              (Tối đa: {(question as any).maxPersons} người)
+                            </span>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {personList.map((person: string, pIndex: number) => {
+                            const currentAnswer = answers[`common-${question.id}`] || [];
+                            const selectedPersons = Array.isArray(currentAnswer) ? currentAnswer : [];
+                            const isSelected = selectedPersons.includes(person);
+                            const maxReached = (question as any).maxPersons > 0 && 
+                              selectedPersons.length >= (question as any).maxPersons && 
+                              !isSelected;
+                            return (
+                              <label 
+                                key={pIndex}
+                                className={`flex items-center gap-3 p-3 border-2 rounded-lg cursor-pointer transition-all ${
+                                  isSelected 
+                                    ? 'border-green-500 bg-green-50' 
+                                    : maxReached
+                                    ? 'border-gray-200 bg-gray-100 cursor-not-allowed opacity-50'
+                                    : 'border-gray-200 hover:border-gray-300'
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  disabled={maxReached}
+                                  onChange={(e) => {
+                                    let newSelected = [...selectedPersons];
+                                    if (e.target.checked && !maxReached) {
+                                      newSelected.push(person);
+                                    } else {
+                                      newSelected = newSelected.filter((p: string) => p !== person);
+                                    }
+                                    setAnswers({...answers, [`common-${question.id}`]: newSelected});
+                                  }}
+                                  className="hidden"
+                                />
+                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                                  isSelected 
+                                    ? 'border-green-500 bg-green-500' 
+                                    : 'border-gray-300'
+                                }`}>
+                                  {isSelected && (
+                                    <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                    </svg>
+                                  )}
+                                </div>
+                                <span className="flex items-center gap-2">
+                                  <span className="text-lg">👤</span>
+                                  {person}
+                                </span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                        {/* Hiển thị số người đã chọn */}
+                        <div className="text-sm text-gray-600 mt-2">
+                          Đã chọn: {Array.isArray(answers[`common-${question.id}`]) ? answers[`common-${question.id}`].length : 0} người
+                          {(question as any).minPersons > 1 && (
+                            <span className={`ml-2 ${
+                              (Array.isArray(answers[`common-${question.id}`]) ? answers[`common-${question.id}`].length : 0) >= (question as any).minPersons 
+                                ? 'text-green-600' 
+                                : 'text-red-600'
+                            }`}>
+                              ({(Array.isArray(answers[`common-${question.id}`]) ? answers[`common-${question.id}`].length : 0) >= (question as any).minPersons ? '✓ Đủ' : `Cần thêm ${(question as any).minPersons - (Array.isArray(answers[`common-${question.id}`]) ? answers[`common-${question.id}`].length : 0)} người`})
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ); })()}
 
                     {question.type === 'ranking' && (
                       <div className="space-y-3">
