@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Plus, Edit, Trash2, Eye, Copy, Power, BarChart3, Users, MousePointer } from 'lucide-react';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -20,7 +20,6 @@ const QuestionTemplates: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const { hasPermission } = useAuth();
-  const navigate = useNavigate();
   
   const canViewHistory = hasPermission('view_history');
   const canDeleteTemplate = hasPermission('delete_templates');

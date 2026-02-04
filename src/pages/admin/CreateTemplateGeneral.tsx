@@ -140,6 +140,9 @@ const CreateTemplateGeneral: React.FC = () => {
           type: q.type,
           description: q.description || '',
           required: q.required ?? true,
+          // Các trường cho loại single-choice và multiple-choice
+          options: (q as any).options || [],
+          allowOther: (q as any).allowOther || false,
           // Các trường cho loại person-select
           personList: (q as any).personList || [],
           minPersons: (q as any).minPersons || 1,
@@ -326,6 +329,60 @@ const CreateTemplateGeneral: React.FC = () => {
                         placeholder="Mô tả thêm (tùy chọn)..."
                         className="text-sm"
                       />
+
+                      {/* Cấu hình cho câu hỏi chọn một hoặc chọn nhiều */}
+                      {(question.type === 'single-choice' || question.type === 'multiple-choice') && (
+                        <div className="space-y-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                          <div className="flex items-center justify-between">
+                            <label className="text-sm font-medium text-gray-700">Các lựa chọn</label>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newOptions = [...((question as any).options || []), ''];
+                                updateQuestion(question.tempId, 'options', newOptions);
+                              }}
+                              className="text-sm text-purple-600 hover:text-purple-700 font-medium"
+                            >
+                              + Thêm lựa chọn
+                            </button>
+                          </div>
+                          {((question as any).options || []).map((option: string, optIdx: number) => (
+                            <div key={optIdx} className="flex items-center gap-2">
+                              <Input
+                                value={option}
+                                onChange={(e) => {
+                                  const newOptions = [...((question as any).options || [])];
+                                  newOptions[optIdx] = e.target.value;
+                                  updateQuestion(question.tempId, 'options', newOptions);
+                                }}
+                                placeholder={`Lựa chọn ${optIdx + 1}`}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const newOptions = ((question as any).options || []).filter((_: string, i: number) => i !== optIdx);
+                                  updateQuestion(question.tempId, 'options', newOptions);
+                                }}
+                                className="p-2 text-red-500 hover:bg-red-50 rounded"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ))}
+                          {((question as any).options || []).length === 0 && (
+                            <p className="text-sm text-gray-500 italic">Chưa có lựa chọn nào. Nhấn "+ Thêm lựa chọn" để bắt đầu.</p>
+                          )}
+                          <label className="flex items-center gap-2 text-sm text-gray-600">
+                            <input
+                              type="checkbox"
+                              checked={(question as any).allowOther || false}
+                              onChange={(e) => updateQuestion(question.tempId, 'allowOther', e.target.checked)}
+                              className="rounded border-gray-300"
+                            />
+                            Cho phép điền "Khác"
+                          </label>
+                        </div>
+                      )}
                       
                       {/* Cấu hình cho câu hỏi chọn người */}
                       {question.type === 'person-select' && (
