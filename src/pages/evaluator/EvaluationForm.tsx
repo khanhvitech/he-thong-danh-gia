@@ -232,7 +232,15 @@ const EvaluationForm: React.FC = () => {
         ...answers,
         [questionId]: value,
       });
+    } else if (questionId.startsWith('tpl-')) {
+      // Template questions đã có subjectId trong questionId (format: tpl-subjectId-originalId)
+      // Không cần thêm prefix nữa
+      setAnswers({
+        ...answers,
+        [questionId]: value,
+      });
     } else {
+      // Individual/subject questions - cần thêm subjectId prefix
       setAnswers({
         ...answers,
         [`${currentSubject?.id}-${questionId}`]: value,
@@ -241,6 +249,11 @@ const EvaluationForm: React.FC = () => {
   };
 
   const getAnswer = (questionId: string) => {
+    // Template questions đã có subjectId trong questionId (format: tpl-subjectId-originalId)
+    if (questionId.startsWith('tpl-')) {
+      return answers[questionId] || '';
+    }
+    // Individual/subject questions
     return answers[`${currentSubject?.id}-${questionId}`] || '';
   };
 

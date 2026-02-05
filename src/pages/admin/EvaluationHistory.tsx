@@ -286,7 +286,9 @@ const EvaluationHistory: React.FC = () => {
   const isGeneralTemplate = (template as any).type === 'chung';
   
   // Lọc subjects theo phòng ban nếu có filter
-  const filteredSubjects = filterDepartment
+  // Chỉ áp dụng cho template nhân viên (subjects có department)
+  // Với template lãnh đạo, subjects không có department nên không lọc
+  const filteredSubjects = (filterDepartment && isEmployeeTemplate)
     ? subjects.filter(s => {
         if (!s.department) return false;
         const parts = s.department.split(' - ');
@@ -789,6 +791,17 @@ const EvaluationHistory: React.FC = () => {
                     </div>
                   );
                 })}
+                {/* Thông báo khi không có đánh giá nào sau filter */}
+                {filteredEvaluations.length === 0 && filterDepartment && (
+                  <p className="text-center text-gray-500 py-8">
+                    Không có đánh giá nào từ phòng ban "{filterDepartment}"
+                  </p>
+                )}
+                {filteredSubjects.length === 0 && filterDepartment && isEmployeeTemplate && (
+                  <p className="text-center text-gray-500 py-8">
+                    Không có nhân viên nào thuộc phòng ban "{filterDepartment}"
+                  </p>
+                )}
               </div>
               )}
             </CardContent>
