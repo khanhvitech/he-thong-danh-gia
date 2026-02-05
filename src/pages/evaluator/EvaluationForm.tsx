@@ -827,7 +827,7 @@ const EvaluationForm: React.FC = () => {
               <span className="font-medium">1. {template.selectionQuestion || 'Anh/Chị đã có đủ trải nghiệm làm việc hoặc tương tác để chia sẻ góc nhìn với những lãnh đạo nào dưới đây?'}</span>
             </p>
             <p className="text-orange-600 font-medium mb-4">
-              👉 Vui lòng chọn ít nhất {template.minSelections || 2} người
+              👉 Vui lòng chọn ít nhất {template.minSelections ?? 1} người
             </p>
 
             {/* Cho template nhân viên: Hiển thị phòng ban/team đã chọn */}
@@ -884,7 +884,7 @@ const EvaluationForm: React.FC = () => {
         </Card>
 
         {/* Section 2: Questions for selected people - Using Tabs like CreateTemplate */}
-        {selectedSubjects.length >= (template.minSelections || 2) && (
+        {selectedSubjects.length >= (template.minSelections ?? 1) && (
           <Card>
             <CardContent className="p-6">
               <h2 className="text-xl font-bold text-gray-900 mb-2">
@@ -1253,7 +1253,7 @@ const EvaluationForm: React.FC = () => {
         )}
 
         {/* Section 3: Common Questions - Asked once after all subjects are evaluated */}
-        {selectedSubjects.length >= (template.minSelections || 2) && isAllSubjectsCompleted() && commonQuestions.length > 0 && (
+        {selectedSubjects.length >= (template.minSelections ?? 1) && isAllSubjectsCompleted() && commonQuestions.length > 0 && (
           <Card className="mt-6">
             <CardContent className="p-6">
               <h2 className="text-xl font-bold text-gray-900 mb-2">

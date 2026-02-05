@@ -738,6 +738,38 @@ const CreateTemplateEmployee: React.FC = () => {
                         />
                         Cho phép điền "Khác"
                       </label>
+                      
+                      {/* Giới hạn số lựa chọn cho câu hỏi chọn nhiều */}
+                      {question.type === 'multiple-choice' && (
+                        <div className="flex gap-4 pt-2 border-t border-gray-200">
+                          <div className="flex-1">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Số lựa chọn tối thiểu:
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={(question as any).minSelections || 0}
+                              onChange={(e) => updateCommonQuestion(question.id, 'minSelections' as any, parseInt(e.target.value) || 0)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                            />
+                            <p className="text-xs text-gray-500 mt-1">0 = không giới hạn</p>
+                          </div>
+                          <div className="flex-1">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Số lựa chọn tối đa:
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={(question as any).maxSelections || 0}
+                              onChange={(e) => updateCommonQuestion(question.id, 'maxSelections' as any, parseInt(e.target.value) || 0)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                            />
+                            <p className="text-xs text-gray-500 mt-1">0 = không giới hạn</p>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -1006,6 +1038,38 @@ const CreateTemplateEmployee: React.FC = () => {
                           />
                           Cho phép điền "Khác"
                         </label>
+                        
+                        {/* Giới hạn số lựa chọn cho câu hỏi chọn nhiều */}
+                        {question.type === 'multiple-choice' && (
+                          <div className="flex gap-4 pt-2 border-t border-gray-200">
+                            <div className="flex-1">
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Số lựa chọn tối thiểu:
+                              </label>
+                              <input
+                                type="number"
+                                min="0"
+                                value={(question as any).minSelections || 0}
+                                onChange={(e) => updateTemplateQuestion(question.id, 'minSelections' as any, parseInt(e.target.value) || 0)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                              />
+                              <p className="text-xs text-gray-500 mt-1">0 = không giới hạn</p>
+                            </div>
+                            <div className="flex-1">
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Số lựa chọn tối đa:
+                              </label>
+                              <input
+                                type="number"
+                                min="0"
+                                value={(question as any).maxSelections || 0}
+                                onChange={(e) => updateTemplateQuestion(question.id, 'maxSelections' as any, parseInt(e.target.value) || 0)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                              />
+                              <p className="text-xs text-gray-500 mt-1">0 = không giới hạn</p>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
 
