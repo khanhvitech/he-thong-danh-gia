@@ -8,6 +8,7 @@ interface SuccessModalProps {
   title?: string;
   message?: string;
   subMessage?: string;
+  hideButton?: boolean;
 }
 
 export const SuccessModal: React.FC<SuccessModalProps> = ({
@@ -16,6 +17,7 @@ export const SuccessModal: React.FC<SuccessModalProps> = ({
   title = 'Thành công!',
   message = 'Đánh giá của bạn đã được gửi thành công!',
   subMessage = 'Cảm ơn bạn đã dành thời gian tham gia khảo sát.',
+  hideButton = false,
 }) => {
   if (!isOpen) return null;
 
@@ -97,12 +99,14 @@ export const SuccessModal: React.FC<SuccessModalProps> = ({
             </div>
             
             {/* Button */}
-            <Button
-              onClick={onClose}
-              className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-medium py-3 rounded-xl transition-all transform hover:scale-[1.02]"
-            >
-              Hoàn tất
-            </Button>
+            {!hideButton && (
+              <Button
+                onClick={onClose}
+                className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-medium py-3 rounded-xl transition-all transform hover:scale-[1.02]"
+              >
+                Hoàn tất
+              </Button>
+            )}
           </div>
         </div>
         

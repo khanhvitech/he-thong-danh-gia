@@ -293,7 +293,10 @@ const EvaluationForm: React.FC = () => {
   
   const handleSuccessClose = () => {
     setShowSuccessModal(false);
-    navigate('/');
+    // Đóng tab/cửa sổ trình duyệt
+    window.close();
+    // Nếu không đóng được (do browser security), thì chuyển về trang trắng
+    window.location.href = 'about:blank';
   };
 
   const isSubjectCompleted = (index: number) => {
@@ -1584,6 +1587,7 @@ const EvaluationForm: React.FC = () => {
         title="Gửi thành công! 🎉"
         message="Đánh giá của bạn đã được ghi nhận!"
         subMessage="Cảm ơn bạn đã dành thời gian tham gia khảo sát. Phản hồi của bạn rất quan trọng với chúng tôi."
+        hideButton={true}
       />
     </div>
   );

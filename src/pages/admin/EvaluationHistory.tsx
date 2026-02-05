@@ -38,6 +38,7 @@ const EvaluationHistory: React.FC = () => {
   const [viewMode, setViewMode] = useState<'list' | 'stats'>('stats');
   const [selectedEvaluation, setSelectedEvaluation] = useState<Evaluation | null>(null);
   const [filterDepartment, setFilterDepartment] = useState<string | null>(null);
+  const [filterSubject, setFilterSubject] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -293,6 +294,22 @@ const EvaluationHistory: React.FC = () => {
       })
     : subjects;
   
+  // Lọc evaluations theo filter
+  const filteredEvaluations = evaluations.filter(e => {
+    // Lọc theo phòng ban - hỗ trợ cả department đầy đủ và phần đầu tiên
+    if (filterDepartment) {
+      const evalDept = e.department || '';
+      const evalDeptParts = evalDept.split(' - ');
+      // So sánh phần đầu của department (trước dấu " - ")
+      if (evalDeptParts[0] !== filterDepartment && evalDept !== filterDepartment) {
+        return false;
+      }
+    }
+    // Lọc theo người được đánh giá
+    if (filterSubject && !e.selectedSubjects?.includes(filterSubject)) return false;
+    return true;
+  });
+  
   // Label động theo loại template
   const subjectLabel = isEmployeeTemplate ? 'nhân viên' : isGeneralTemplate ? 'câu trả lời' : 'lãnh đạo';
   const subjectLabelCapital = isEmployeeTemplate ? 'Nhân viên' : isGeneralTemplate ? 'Người trả lời' : 'Lãnh đạo';
@@ -461,16 +478,42 @@ const EvaluationHistory: React.FC = () => {
             </Card>
           )}
 
-          {/* Subject Stats */}
+          {/* Subject Stats - Chỉ hiển thị khi có subjects (không phải đánh giá chung) */}
+          {subjects.length > 0 && (
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold">Thống kê theo {subjectLabel}</h2>
-                {filterDepartment && (
-                  <span className="text-sm text-purple-600 bg-purple-50 px-3 py-1 rounded-full">
-                    🔍 Lọc: {filterDepartment}
-                  </span>
-                )}
+                <div className="flex items-center gap-4">
+                  <h2 className="text-lg font-semibold">Thống kê theo {subjectLabel}</h2>
+                  {/* Filter theo người */}
+                  {subjects.length > 0 && (
+                    <select
+                      value={filterSubject || ''}
+                      onChange={(e) => setFilterSubject(e.target.value || null)}
+                      className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 bg-white focus:ring-2 focus:ring-purple-500"
+                    >
+                      <option value="">Tất cả {subjectLabel}</option>
+                      {subjects.map(s => (
+                        <option key={s.id} value={s.id}>{s.name}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  {filterSubject && (
+                    <button
+                      onClick={() => setFilterSubject(null)}
+                      className="text-sm text-red-600 hover:text-red-700 px-2 py-1"
+                    >
+                      Xóa lọc
+                    </button>
+                  )}
+                  {filterDepartment && (
+                    <span className="text-sm text-purple-600 bg-purple-50 px-3 py-1 rounded-full">
+                      🔍 Phòng ban: {filterDepartment}
+                    </span>
+                  )}
+                </div>
               </div>
             </CardHeader>
             <CardContent>
@@ -486,18 +529,29 @@ const EvaluationHistory: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredSubjects.map((subject) => {
+                    {(filterSubject ? filteredSubjects.filter(s => s.id === filterSubject) : filteredSubjects).map((subject) => {
+                      // Tính số lượng đánh giá dựa trên filteredEvaluations để filter hoạt động đúng
+                      const subjectFilteredEvals = filteredEvaluations.filter(e => 
+                        e.selectedSubjects?.includes(subject.id)
+                      );
+                      const filteredCount = subjectFilteredEvals.length;
+                      
+                      // Thống kê gốc từ server (dùng khi không có filter)
                       const stats = statistics?.subjectStats?.[subject.id];
                       const ranking = statistics?.rankingData?.[subject.id];
+                      
+                      // Dùng số đã filter nếu có filter, nếu không dùng số gốc
+                      const displayCount = (filterDepartment || filterSubject) ? filteredCount : (stats?.totalEvaluations || 0);
+                      
                       return (
-                        <tr key={subject.id} className="border-b hover:bg-gray-50">
+                        <tr key={subject.id} className="border-b hover:bg-gray-50 cursor-pointer" onClick={() => setFilterSubject(subject.id)}>
                           <td className="py-3 px-4">
                             <p className="font-medium text-gray-900">{subject.name}</p>
                             <p className="text-sm text-gray-500">{subject.position}</p>
                           </td>
                           <td className="text-center py-3 px-4">
                             <span className="inline-flex items-center justify-center w-10 h-10 bg-purple-100 text-purple-700 font-bold rounded-full">
-                              {stats?.totalEvaluations || 0}
+                              {displayCount}
                             </span>
                           </td>
                           <td className="text-center py-3 px-4">
@@ -523,28 +577,110 @@ const EvaluationHistory: React.FC = () => {
               </div>
             </CardContent>
           </Card>
+          )}
 
-          {/* Text Responses by Subject */}
+          {/* Text Responses by Subject hoặc theo câu hỏi (cho đánh giá chung) */}
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold">Các đánh giá chi tiết theo {subjectLabel}</h2>
-                {filterDepartment && (
-                  <span className="text-sm text-purple-600 bg-purple-50 px-3 py-1 rounded-full">
-                    🔍 Lọc: {filterDepartment}
-                  </span>
-                )}
+                <h2 className="text-lg font-semibold">
+                  {isGeneralTemplate ? 'Các câu trả lời chi tiết' : `Các đánh giá chi tiết theo ${subjectLabel}`}
+                </h2>
+                <div className="flex items-center gap-2">
+                  {filterSubject && (
+                    <span className="text-sm text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
+                      👤 {subjects.find(s => s.id === filterSubject)?.name}
+                    </span>
+                  )}
+                  {filterDepartment && (
+                    <span className="text-sm text-purple-600 bg-purple-50 px-3 py-1 rounded-full">
+                      🔍 {filterDepartment}
+                    </span>
+                  )}
+                </div>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="space-y-8">
-                {filteredSubjects.map((subject) => {
-                  // Get all evaluations for this subject
-                  const subjectEvaluations = evaluations.filter(e => 
-                    e.selectedSubjects?.includes(subject.id)
-                  );
-                  
-                  if (subjectEvaluations.length === 0) return null;
+              {/* Hiển thị cho template đánh giá chung (không có subjects) */}
+              {isGeneralTemplate ? (
+                <div className="space-y-8">
+                  {(template.questions || []).map((q: any) => {
+                    // Get all answers for this question from all evaluations
+                    const questionAnswers = filteredEvaluations.map(e => {
+                      // Thử các key khác nhau có thể có
+                      const answerKey = `common-${q.id}`;
+                      const directKey = q.id;
+                      return {
+                        department: e.department,
+                        answer: e.answers[answerKey] ?? e.answers[directKey] ?? e.answers[`q-${q.id}`],
+                        submittedAt: e.submittedAt,
+                      };
+                    }).filter(a => a.answer !== undefined && a.answer !== null && a.answer !== '');
+                    
+                    if (questionAnswers.length === 0) return null;
+                    
+                    return (
+                      <div key={q.id} className="border-b pb-6 last:border-b-0">
+                        <div className="flex items-start gap-3 mb-4">
+                          <div className="p-2 bg-purple-100 rounded-lg">
+                            <span className="text-purple-700 font-bold">📝</span>
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-gray-900">{q.content}</h3>
+                            <p className="text-sm text-gray-500">{questionAnswers.length} câu trả lời</p>
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-2 pl-4 border-l-2 border-purple-200">
+                          {questionAnswers.map((qa, idx) => (
+                            <div key={idx} className="p-3 bg-gray-50 rounded-lg">
+                              {q.type === 'rating-5' || q.type === 'rating-10' ? (
+                                <StarRating 
+                                  value={Number(qa.answer) || 0} 
+                                  max={q.type === 'rating-10' ? 10 : 5}
+                                  readonly 
+                                  size="sm"
+                                />
+                              ) : q.type === 'multiple-choice' && Array.isArray(qa.answer) ? (
+                                <div className="flex flex-wrap gap-2">
+                                  {qa.answer.map((opt: string, i: number) => (
+                                    <span key={i} className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-sm">
+                                      {opt}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : q.type === 'yes-no' ? (
+                                <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                                  qa.answer === 'yes' || qa.answer === true ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                }`}>
+                                  {qa.answer === 'yes' || qa.answer === true ? 'Có' : 'Không'}
+                                </span>
+                              ) : (
+                                <p className="text-gray-900 whitespace-pre-wrap">{String(qa.answer)}</p>
+                              )}
+                              <p className="text-xs text-gray-500 mt-2">
+                                {qa.department} • {formatDate(qa.submittedAt)}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {filteredEvaluations.length === 0 && (
+                    <p className="text-center text-gray-500 py-8">Chưa có câu trả lời nào</p>
+                  )}
+                </div>
+              ) : (
+                /* Hiển thị cho template có subjects (lãnh đạo, nhân viên) */
+                <div className="space-y-8">
+                  {(filterSubject ? filteredSubjects.filter(s => s.id === filterSubject) : filteredSubjects).map((subject) => {
+                    // Get all evaluations for this subject - sử dụng filteredEvaluations để áp dụng filter phòng ban
+                    const subjectEvaluations = filteredEvaluations.filter(e => 
+                      e.selectedSubjects?.includes(subject.id)
+                    );
+                    
+                    if (subjectEvaluations.length === 0) return null;
                   
                   // Get template questions
                   // Support cả camelCase và snake_case
@@ -654,6 +790,7 @@ const EvaluationHistory: React.FC = () => {
                   );
                 })}
               </div>
+              )}
             </CardContent>
           </Card>
         </>
@@ -661,14 +798,29 @@ const EvaluationHistory: React.FC = () => {
         /* List View */
         <Card>
           <CardHeader>
-            <h2 className="text-lg font-semibold">Danh sách đánh giá ({evaluations.length})</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Danh sách đánh giá ({filteredEvaluations.length})</h2>
+              {/* Filter theo người */}
+              {subjects.length > 0 && (
+                <select
+                  value={filterSubject || ''}
+                  onChange={(e) => setFilterSubject(e.target.value || null)}
+                  className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 bg-white focus:ring-2 focus:ring-purple-500"
+                >
+                  <option value="">Tất cả {subjectLabel}</option>
+                  {subjects.map(s => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
-            {evaluations.length === 0 ? (
-              <p className="text-center text-gray-500 py-8">Chưa có đánh giá nào</p>
+            {filteredEvaluations.length === 0 ? (
+              <p className="text-center text-gray-500 py-8">Chưa có đánh giá nào {filterSubject || filterDepartment ? 'khớp với bộ lọc' : ''}</p>
             ) : (
               <div className="space-y-3">
-                {evaluations.map((evaluation, index) => (
+                {filteredEvaluations.map((evaluation, index) => (
                   <div
                     key={evaluation.id}
                     className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
