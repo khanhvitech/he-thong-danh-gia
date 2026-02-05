@@ -154,6 +154,16 @@ const EvaluationForm: React.FC = () => {
     ? allSubjects.filter(s => selectedSubjects.includes(s.id))
     : allSubjects;
   const currentSubject = subjects[currentSubjectIndex];
+  
+  // Debug: Kiểm tra tại sao subjects có thể rỗng
+  console.debug('Subjects Debug:', {
+    allSubjectsLength: allSubjects.length,
+    allSubjectsIds: allSubjects.map(s => s.id),
+    selectedSubjects,
+    filteredSubjectsLength: subjects.length,
+    currentSubjectIndex,
+    currentSubject: currentSubject ? currentSubject.name : null,
+  });
 
   // Get questions for current subject (only template questions with {name} and individual questions)
   const getCurrentSubjectQuestions = (): Question[] => {
@@ -209,11 +219,22 @@ const EvaluationForm: React.FC = () => {
   const currentQuestions = getCurrentSubjectQuestions();
   const totalQuestions = currentQuestions.length;
   const answeredQuestions = Object.keys(answers).filter(key =>
-    key.startsWith(`${currentSubject?.id}-`)
+    key.startsWith(`${currentSubject?.id}-`) || key.startsWith(`tpl-${currentSubject?.id}-`)
   ).length;
   const progress = totalQuestions > 0 ? (answeredQuestions / totalQuestions) * 100 : 0;
-  // Use progress for debugging
-  console.debug('Progress:', progress);
+  void progress; // Sử dụng biến để tránh lỗi unused
+  
+  // Debug log để kiểm tra vấn đề hiển thị câu hỏi
+  console.debug('EvaluationForm Debug:', {
+    selectedSubjectsLength: selectedSubjects.length,
+    selectedSubjects,
+    subjectsLength: subjects.length,
+    currentSubjectIndex,
+    currentSubject: currentSubject ? { id: currentSubject.id, name: currentSubject.name } : null,
+    currentQuestionsLength: currentQuestions.length,
+    templateQuestions: (template as any)?.templateQuestions?.length || (template as any)?.template_questions?.length || 0,
+    template: template ? { id: template.id, name: template.name, type: template.type } : null,
+  });
 
   // Auto-save every 30 seconds
   useEffect(() => {
@@ -326,7 +347,10 @@ const EvaluationForm: React.FC = () => {
     const individualQuestions = subjectQuestionData?.questions || [];
     const totalQs = templateQuestionsRaw.length + individualQuestions.length;
 
-    const subjectAnswers = Object.keys(answers).filter(key => key.startsWith(`${subject.id}-`));
+    // Đếm cả 2 loại key: tpl-subjectId-... và subjectId-...
+    const subjectAnswers = Object.keys(answers).filter(key => 
+      key.startsWith(`${subject.id}-`) || key.startsWith(`tpl-${subject.id}-`)
+    );
     return subjectAnswers.length >= totalQs;
   };
 
@@ -334,7 +358,8 @@ const EvaluationForm: React.FC = () => {
   const isAllSubjectsCompleted = () => {
     // Với đánh giá chung, không cần chọn người
     if (isGeneralTemplate) return true;
-    if (selectedSubjects.length < 2) return false;
+    // Dùng minSelections từ template, mặc định là 1
+    if (selectedSubjects.length < (template?.minSelections ?? 1)) return false;
     return subjects.every((_, index) => isSubjectCompleted(index));
   };
 
@@ -922,8 +947,13 @@ const EvaluationForm: React.FC = () => {
 
               {/* Tabs - Same style as CreateTemplate */}
               <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+                {subjects.length === 0 && (
+                  <p className="text-gray-500 italic">Không tìm thấy người đã chọn. Vui lòng thử lại.</p>
+                )}
                 {subjects.map((subject, index) => {
-                  const subjectAnswerCount = Object.keys(answers).filter(key => key.startsWith(`${subject.id}-`)).length;
+                  const subjectAnswerCount = Object.keys(answers).filter(key => 
+                    key.startsWith(`${subject.id}-`) || key.startsWith(`tpl-${subject.id}-`)
+                  ).length;
                   const subjectTotalQuestions = getCurrentSubjectQuestions().length;
 
                   return (
@@ -962,6 +992,15 @@ const EvaluationForm: React.FC = () => {
                       Đã trả lời: {answeredQuestions}/{totalQuestions} câu
                     </p>
                   </div>
+
+                  {/* Thông báo nếu không có câu hỏi */}
+                  {currentQuestions.length === 0 && (
+                    <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <p className="text-yellow-800">
+                        ⚠️ Chưa có câu hỏi đánh giá cho người này. Vui lòng kiểm tra lại template.
+                      </p>
+                    </div>
+                  )}
 
                   {/* Questions */}
                   <div className="space-y-6">
