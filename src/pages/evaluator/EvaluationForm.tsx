@@ -900,7 +900,8 @@ const EvaluationForm: React.FC = () => {
         </Card>
 
         {/* Section 2: Questions for selected people - Using Tabs like CreateTemplate */}
-        {selectedSubjects.length >= (template.minSelections ?? 1) && (
+        {/* Hiển thị câu hỏi ngay khi chọn ít nhất 1 người, kiểm tra đủ số lượng khi submit */}
+        {selectedSubjects.length >= 1 && (
           <Card>
             <CardContent className="p-6">
               <h2 className="text-xl font-bold text-gray-900 mb-2">
@@ -909,6 +910,15 @@ const EvaluationForm: React.FC = () => {
               <p className="text-gray-600 mb-4">
                 Trả lời các câu hỏi cho từng người đã chọn
               </p>
+              
+              {/* Cảnh báo nếu chưa chọn đủ số người yêu cầu */}
+              {selectedSubjects.length < (template.minSelections ?? 1) && (
+                <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <p className="text-yellow-800 font-medium">
+                    ⚠️ Vui lòng chọn thêm {(template.minSelections ?? 1) - selectedSubjects.length} người nữa để hoàn thành đánh giá
+                  </p>
+                </div>
+              )}
 
               {/* Tabs - Same style as CreateTemplate */}
               <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
