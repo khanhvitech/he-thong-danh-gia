@@ -187,8 +187,10 @@ const EvaluationHistory: React.FC = () => {
         
         // Template question answers for this subject
         templateQuestions.forEach((q: any) => {
-          const answerKey = `${subjectId}-tpl-${subjectId}-${q.id}`;
-          const answer = evaluation.answers[answerKey];
+          // Hỗ trợ cả 2 format key: tpl-{subjectId}-{q.id} (mới) và {subjectId}-tpl-{subjectId}-{q.id} (cũ)
+          const newKey = `tpl-${subjectId}-${q.id}`;
+          const oldKey = `${subjectId}-tpl-${subjectId}-${q.id}`;
+          const answer = evaluation.answers[newKey] ?? evaluation.answers[oldKey];
           row.push(answer || '');
         });
         
@@ -636,10 +638,10 @@ const EvaluationHistory: React.FC = () => {
                         <div className="space-y-2 pl-4 border-l-2 border-purple-200">
                           {questionAnswers.map((qa, idx) => (
                             <div key={idx} className="p-3 bg-gray-50 rounded-lg">
-                              {q.type === 'rating-5' || q.type === 'rating-10' ? (
+                              {q.type === 'rating-5' || q.type === 'rating-10' || q.type === 'rating' || q.type === 'scale' ? (
                                 <StarRating 
                                   value={Number(qa.answer) || 0} 
-                                  max={q.type === 'rating-10' ? 10 : 5}
+                                  max={q.type === 'rating-10' || q.type === 'scale' ? 10 : 5}
                                   readonly 
                                   size="sm"
                                 />
@@ -708,11 +710,13 @@ const EvaluationHistory: React.FC = () => {
                         const questionContent = q.content.replace(/\{name\}/g, subject.name);
                         
                         // Get all answers for this question
+                        // Hỗ trợ cả 2 format key: tpl-{subjectId}-{q.id} (mới) và {subjectId}-tpl-{subjectId}-{q.id} (cũ)
                         const questionAnswers = subjectEvaluations.map(e => {
-                          const answerKey = `${subject.id}-tpl-${subject.id}-${q.id}`;
+                          const newKey = `tpl-${subject.id}-${q.id}`;
+                          const oldKey = `${subject.id}-tpl-${subject.id}-${q.id}`;
                           return {
                             department: e.department,
-                            answer: e.answers[answerKey],
+                            answer: e.answers[newKey] ?? e.answers[oldKey],
                             submittedAt: e.submittedAt,
                           };
                         }).filter(a => a.answer);
@@ -727,10 +731,10 @@ const EvaluationHistory: React.FC = () => {
                             <div className="space-y-2 pl-4 border-l-2 border-purple-200">
                               {questionAnswers.map((qa, idx) => (
                                 <div key={idx} className="p-3 bg-gray-50 rounded-lg">
-                                  {q.type === 'rating-5' || q.type === 'rating-10' ? (
+                                  {q.type === 'rating-5' || q.type === 'rating-10' || q.type === 'rating' || q.type === 'scale' ? (
                                     <StarRating 
                                       value={Number(qa.answer) || 0} 
-                                      max={q.type === 'rating-10' ? 10 : 5}
+                                      max={q.type === 'rating-10' || q.type === 'scale' ? 10 : 5}
                                       readonly 
                                       size="sm"
                                     />
@@ -769,10 +773,10 @@ const EvaluationHistory: React.FC = () => {
                             <div className="space-y-2 pl-4 border-l-2 border-blue-200">
                               {questionAnswers.map((qa, idx) => (
                                 <div key={idx} className="p-3 bg-gray-50 rounded-lg">
-                                  {q.type === 'rating-5' || q.type === 'rating-10' ? (
+                                  {q.type === 'rating-5' || q.type === 'rating-10' || q.type === 'rating' || q.type === 'scale' ? (
                                     <StarRating 
                                       value={Number(qa.answer) || 0} 
-                                      max={q.type === 'rating-10' ? 10 : 5}
+                                      max={q.type === 'rating-10' || q.type === 'scale' ? 10 : 5}
                                       readonly 
                                       size="sm"
                                     />
@@ -946,8 +950,21 @@ const EvaluationHistory: React.FC = () => {
                       }
                     } else {
                       // Subject-specific question
-                      const parts = key.split('-');
-                      const subjectId = parts[0];
+                      // Hỗ trợ cả 2 format:
+                      // - Mới: tpl-{subjectId}-{qId} (ví dụ: tpl-subject1-q1)
+                      // - Cũ: {subjectId}-tpl-{subjectId}-{qId} (ví dụ: subject1-tpl-subject1-q1)
+                      let subjectId: string | undefined;
+                      
+                      if (key.startsWith('tpl-')) {
+                        // Format mới: tpl-{subjectId}-{qId}
+                        const parts = key.split('-');
+                        subjectId = parts[1]; // tpl-SUBJECTID-qid
+                      } else {
+                        // Format cũ: {subjectId}-tpl-{subjectId}-{qId} hoặc {subjectId}-{qId}
+                        const parts = key.split('-');
+                        subjectId = parts[0];
+                      }
+                      
                       const subject = subjects.find(s => s.id === subjectId);
                       // Support cả camelCase và snake_case
                       const tplQ = ((template as any).templateQuestions || (template as any).template_questions || []).find((q: any) => 
@@ -960,8 +977,8 @@ const EvaluationHistory: React.FC = () => {
                       }
                     }
                     
-                    const isRating = questionType === 'rating-5' || questionType === 'rating-10';
-                    const maxStars = questionType === 'rating-10' ? 10 : 5;
+                    const isRating = questionType === 'rating-5' || questionType === 'rating-10' || questionType === 'rating' || questionType === 'scale';
+                    const maxStars = questionType === 'rating-10' || questionType === 'scale' ? 10 : 5;
                     
                     return (
                       <div key={key} className="p-4 bg-gray-50 rounded-lg">

@@ -166,7 +166,12 @@ export async function getTemplateStatistics(req, res) {
       subjectEvals.forEach(e => {
         const answers = e.answers || {};
         Object.keys(answers).forEach(key => {
-          if (key.startsWith(`${subject.id}-`) && typeof answers[key] === 'number') {
+          // Hỗ trợ cả 2 format key:
+          // - Cũ: {subjectId}-... (ví dụ: subject1-tpl-subject1-q1)
+          // - Mới: tpl-{subjectId}-... (ví dụ: tpl-subject1-q1)
+          const isOldFormat = key.startsWith(`${subject.id}-`);
+          const isNewFormat = key.startsWith(`tpl-${subject.id}-`);
+          if ((isOldFormat || isNewFormat) && typeof answers[key] === 'number') {
             totalRating += answers[key];
             ratingCount++;
           }
