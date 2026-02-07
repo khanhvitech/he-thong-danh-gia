@@ -103,12 +103,89 @@ const EvaluationHistory: React.FC = () => {
       return;
     }
 
+    // Kiểm tra xem đây có phải template chung không
+    const isGeneralTemplateExport = (template as any).type === 'chung';
+
     // Get all subjects
     const subjects = template.subjects || [];
     // Support cả camelCase và snake_case từ database
     const templateQuestions = (template as any).templateQuestions || (template as any).template_questions || [];
     const commonQuestions = template.questions || [];
 
+    // === XỬ LÝ RIÊNG CHO TEMPLATE CHUNG ===
+    if (isGeneralTemplateExport) {
+      // Headers cho template chung: STT | Thời gian | Phòng ban | Câu hỏi 1 | Câu hỏi 2 | ...
+      const headers = [
+        'STT',
+        'Thời gian',
+        'Phòng ban',
+      ];
+      
+      // Add question headers
+      commonQuestions.forEach((q: any) => {
+        headers.push(q.content);
+      });
+
+      // Build data rows - mỗi đánh giá = 1 dòng
+      const data: any[][] = [headers];
+
+      evaluations.forEach((evaluation, evalIndex) => {
+        const row: any[] = [];
+        
+        row.push(evalIndex + 1);
+        row.push(new Date(evaluation.submittedAt).toLocaleString('vi-VN'));
+        row.push(evaluation.department || '');
+        
+        // Thêm câu trả lời cho từng câu hỏi
+        commonQuestions.forEach((q: any) => {
+          const answerKey = `common-${q.id}`;
+          const answer = evaluation.answers[answerKey];
+          
+          if (q.type === 'ranking' && typeof answer === 'object') {
+            const rankStr = Object.keys(answer)
+              .sort((a, b) => Number(a) - Number(b))
+              .map(rank => {
+                const sid = answer[rank];
+                const s = subjects.find(sub => sub.id === sid);
+                return `${rank}. ${s?.name || sid}`;
+              })
+              .join('\n');
+            row.push(rankStr);
+          } else if (q.type === 'multiple-choice' && Array.isArray(answer)) {
+            row.push(answer.join(', '));
+          } else if (q.type === 'yes-no' || q.type === 'yesno') {
+            row.push(answer === 'yes' || answer === true ? 'Có' : answer === 'no' || answer === false ? 'Không' : '');
+          } else {
+            row.push(answer ?? '');
+          }
+        });
+        
+        data.push(row);
+      });
+
+      // Create workbook and worksheet
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet(data);
+      
+      // Set column widths
+      const colWidths = headers.map((_, i) => {
+        if (i === 0) return { wch: 5 }; // STT
+        if (i === 1) return { wch: 20 }; // Thời gian
+        if (i === 2) return { wch: 20 }; // Phòng ban
+        return { wch: 50 }; // Câu trả lời
+      });
+      ws['!cols'] = colWidths;
+      
+      // Add worksheet to workbook
+      XLSX.utils.book_append_sheet(wb, ws, 'Tổng hợp');
+      
+      // Generate filename and download
+      const fileName = `danh-gia-${template.name.replace(/[^a-zA-Z0-9\u00C0-\u024F]/g, '-')}-${new Date().toISOString().split('T')[0]}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+      return;
+    }
+
+    // === XỬ LÝ CHO TEMPLATE CÓ SUBJECTS (lãnh đạo, nhân viên) ===
     // Build headers
     // STT | Thời gian | Phòng ban | Lãnh đạo | Câu hỏi template 1 | Câu hỏi template 2 | ... | Câu hỏi chung 1 | Xếp hạng | ...
     const headers = [
